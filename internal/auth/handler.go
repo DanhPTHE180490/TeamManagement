@@ -29,7 +29,7 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 // Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req struct {
-		Username string `json:"username" binding:"required, max = 50"`
+		Username string `json:"username" binding:"required,max=50"`
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
 		Role     string `json:"role" binding:"required,oneof=manager member admin"`
