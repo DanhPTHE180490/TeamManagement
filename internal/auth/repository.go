@@ -10,7 +10,6 @@ type AuthRepository interface {
 	GetUserByEmail(email string) (*models.User, error)
 }
 
-// authRepositoryImpl is the concrete implementation of the interface
 type authRepositoryImpl struct {
 	db *sql.DB
 }
@@ -30,7 +29,6 @@ func (r *authRepositoryImpl) CreateUser(user *models.User) error {
 		return err
 	}
 
-	// Retrieve the auto-generated ID
 	id, err := result.LastInsertId()
 	if err == nil {
 		user.ID = int(id)
@@ -56,7 +54,7 @@ func (r *authRepositoryImpl) GetUserByEmail(email string) (*models.User, error) 
 	)
 
 	if err != nil {
-		return nil, err // Returns sql.ErrNoRows if user is not found
+		return nil, err
 	}
 
 	return user, nil

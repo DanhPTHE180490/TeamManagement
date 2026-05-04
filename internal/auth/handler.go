@@ -9,7 +9,7 @@ import (
 
 // AuthHandler handles HTTP requests for authentication
 type AuthHandler struct {
-	service AuthService // It holds a reference to the middle layer
+	service AuthService
 }
 
 // NewAuthHandler is the constructor
@@ -19,17 +19,12 @@ func NewAuthHandler(service AuthService) *AuthHandler {
 
 // RegisterRoutes connects the Gin router to these functions
 func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
-	// Grouping routes under /auth
 	authGroup := router.Group("/auth")
 	{
 		authGroup.POST("/register", h.Register)
 		authGroup.POST("/login", h.Login)
 	}
 }
-
-// ==========================================
-// THE ENDPOINTS
-// ==========================================
 
 // Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -40,13 +35,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Role     string `json:"role"`
 	}
 
-	// 1. Parse the JSON from the request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
 		return
 	}
 
-	// 2. Send the data down to the Service Layer (The Brain)
 	user, err := h.service.Register(req.Username, req.Email, req.Password, req.Role)
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {
@@ -57,7 +50,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 3. Return success!
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered successfully",
 		"user":    user,

@@ -29,11 +29,9 @@ func (m *mockAuthRepo) GetUserByEmail(email string) (*models.User, error) {
 }
 
 func TestRegister_Service(t *testing.T) {
-	// Setup our fake database and the service we are actually testing
 	fakeRepo := &mockAuthRepo{users: make(map[string]*models.User)}
 	authService := NewAuthService(fakeRepo)
 
-	// 2. Define the Test Table
 	tests := []struct {
 		name          string
 		inputUsername string
@@ -50,16 +48,16 @@ func TestRegister_Service(t *testing.T) {
 			inputPassword: "password123",
 			inputRole:     "manager",
 			expectError:   false,
-			expectedRole:  "manager", // Should keep the manager role
+			expectedRole:  "manager",
 		},
 		{
 			name:          "Role Fallback - Invalid Role Gets Member",
 			inputUsername: "Bob",
 			inputEmail:    "bob@example.com",
 			inputPassword: "password123",
-			inputRole:     "superadmin", // Invalid!
+			inputRole:     "superadmin",
 			expectError:   false,
-			expectedRole:  "member", // The service logic should fix this
+			expectedRole:  "member",
 		},
 		{
 			name:          "Duplicate Email Fails",
@@ -71,12 +69,10 @@ func TestRegister_Service(t *testing.T) {
 		},
 	}
 
-	// 3. Execute the Table
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			user, err := authService.Register(tc.inputUsername, tc.inputEmail, tc.inputPassword, tc.inputRole)
 
-			// Assert Error State
 			if tc.expectError && err == nil {
 				t.Errorf("Expected an error but got none")
 			}
@@ -84,7 +80,6 @@ func TestRegister_Service(t *testing.T) {
 				t.Errorf("Did not expect error, got: %v", err)
 			}
 
-			// Assert Business Logic (Did the invalid role get corrected?)
 			if !tc.expectError && user.SystemRole != tc.expectedRole {
 				t.Errorf("Expected role %s, got %s", tc.expectedRole, user.SystemRole)
 			}

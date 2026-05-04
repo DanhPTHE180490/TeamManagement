@@ -10,8 +10,6 @@ import (
 
 // InitDB opens a connection pool to MySQL
 func InitDB() *sql.DB {
-	// The Data Source Name (DSN) format: username:password@tcp(host:port)/dbname?parseTime=true
-	// Replace "root" and "password" with your local DataGrip credentials
 	dsn := "root:password_1234@tcp(127.0.0.1:3306)/microservices_capstone?parseTime=true"
 
 	db, err := sql.Open("mysql", dsn)
