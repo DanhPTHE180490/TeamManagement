@@ -32,7 +32,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Username string `json:"username" binding:"required, max = 50"`
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
-		Role     string `json:"role"`
+		Role     string `json:"role" binding:"required,oneof=manager member admin"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
