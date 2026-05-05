@@ -2,7 +2,8 @@ package auth
 
 import (
 	"net/http"
-	"strings"
+
+	customErrors "team-management/internal/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,8 +43,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, err := h.service.Register(req.Username, req.Email, req.Password, req.Role)
 	if err != nil {
-		if strings.Contains(err.Error(), "Duplicate entry") {
+		if customErrors.IsErrorType(err, customErrors.ErrTypeDuplicate) {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
+			return
+		}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
@@ -71,12 +76,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Call the Service Layer to verify and get the JWT
 	token, err := h.service.Login(req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) || customErrors.IsErrorType(err, customErrors.ErrTypeUnauthorized) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token":   token,
+	})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// Using JWT is stateless so we can't invalidate tokens server-side without additional infrastructure (like a blacklist).
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logout successful (client should delete the token)",
 	})
 }

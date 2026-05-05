@@ -3,85 +3,247 @@ package auth
 import (
 	"errors"
 	"testing"
+	"time"
 
+	customErrors "team-management/internal/errors"
 	"team-management/internal/models"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type mockAuthRepo struct {
-	users map[string]*models.User
+	createUserFn     func(*models.User) error
+	getUserByEmailFn func(string) (*models.User, error)
+	createdUsers     []*models.User
+	lookedUpEmails   []string
 }
 
 func (m *mockAuthRepo) CreateUser(user *models.User) error {
-	if _, exists := m.users[user.Email]; exists {
-		return errors.New("Duplicate entry") // Simulate MySQL duplicate error
+	m.createdUsers = append(m.createdUsers, user)
+	if m.createUserFn != nil {
+		return m.createUserFn(user)
 	}
-	// "Save" the user to our memory map
-	m.users[user.Email] = user
-	user.ID = len(m.users) // Fake an auto-increment ID
+	user.ID = len(m.createdUsers)
 	return nil
 }
 
 func (m *mockAuthRepo) GetUserByEmail(email string) (*models.User, error) {
-	if user, exists := m.users[email]; exists {
-		return user, nil
+	m.lookedUpEmails = append(m.lookedUpEmails, email)
+	if m.getUserByEmailFn != nil {
+		return m.getUserByEmailFn(email)
 	}
-	return nil, errors.New("not found")
+	return nil, customErrors.NewNotFoundError("user")
 }
 
-func TestRegister_Service(t *testing.T) {
-	fakeRepo := &mockAuthRepo{users: make(map[string]*models.User)}
-	authService := NewAuthService(fakeRepo)
-
+func TestAuthService_Register(t *testing.T) {
 	tests := []struct {
-		name          string
-		inputUsername string
-		inputEmail    string
-		inputPassword string
-		inputRole     string
-		expectError   bool
-		expectedRole  string
+		name      string
+		username  string
+		email     string
+		password  string
+		role      string
+		setupRepo func(*mockAuthRepo)
+		wantRole  string
+		wantErr   bool
+		wantType  customErrors.ErrorType
 	}{
 		{
-			name:          "Happy Path - Valid Manager",
-			inputUsername: "Alice",
-			inputEmail:    "alice@example.com",
-			inputPassword: "password123",
-			inputRole:     "manager",
-			expectError:   false,
-			expectedRole:  "manager",
+			name:     "success manager",
+			username: "alice",
+			email:    "alice@example.com",
+			password: "password123",
+			role:     "manager",
+			wantRole: "manager",
 		},
 		{
-			name:          "Role Fallback - Invalid Role Gets Member",
-			inputUsername: "Bob",
-			inputEmail:    "bob@example.com",
-			inputPassword: "password123",
-			inputRole:     "superadmin",
-			expectError:   false,
-			expectedRole:  "member",
+			name:     "invalid role",
+			username: "alice",
+			email:    "alice@example.com",
+			password: "password123",
+			role:     "superadmin",
+			wantErr:  true,
+			wantType: customErrors.ErrTypeValidation,
 		},
 		{
-			name:          "Duplicate Email Fails",
-			inputUsername: "Alice 2",
-			inputEmail:    "alice@example.com", // Already used in test 1!
-			inputPassword: "password123",
-			inputRole:     "member",
-			expectError:   true,
+			name:     "duplicate email",
+			username: "alice",
+			email:    "alice@example.com",
+			password: "password123",
+			role:     "member",
+			setupRepo: func(repo *mockAuthRepo) {
+				repo.createUserFn = func(*models.User) error {
+					return customErrors.NewDuplicateError("email", errors.New("duplicate key"))
+				}
+			},
+			wantErr:  true,
+			wantType: customErrors.ErrTypeDuplicate,
+		},
+		{
+			name:     "empty username",
+			username: "",
+			email:    "alice@example.com",
+			password: "password123",
+			role:     "member",
+			wantErr:  true,
+			wantType: customErrors.ErrTypeValidation,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			user, err := authService.Register(tc.inputUsername, tc.inputEmail, tc.inputPassword, tc.inputRole)
-
-			if tc.expectError && err == nil {
-				t.Errorf("Expected an error but got none")
+			repo := &mockAuthRepo{}
+			if tc.setupRepo != nil {
+				tc.setupRepo(repo)
 			}
-			if !tc.expectError && err != nil {
-				t.Errorf("Did not expect error, got: %v", err)
+			service := NewAuthService(repo)
+
+			user, err := service.Register(tc.username, tc.email, tc.password, tc.role)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !customErrors.IsErrorType(err, tc.wantType) {
+					t.Fatalf("expected error type %s, got %v", tc.wantType, err)
+				}
+				return
 			}
 
-			if !tc.expectError && user.SystemRole != tc.expectedRole {
-				t.Errorf("Expected role %s, got %s", tc.expectedRole, user.SystemRole)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if user == nil {
+				t.Fatal("expected user, got nil")
+			}
+			if user.SystemRole != tc.wantRole {
+				t.Fatalf("expected role %q, got %q", tc.wantRole, user.SystemRole)
+			}
+			if user.PasswordHash == tc.password {
+				t.Fatal("password was not hashed")
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(tc.password)); err != nil {
+				t.Fatalf("hashed password does not match input: %v", err)
+			}
+		})
+	}
+}
+
+func TestAuthService_Login(t *testing.T) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash setup failed: %v", err)
+	}
+
+	baseUser := &models.User{
+		ID:           42,
+		Username:     "alice",
+		Email:        "alice@example.com",
+		PasswordHash: string(hashedPassword),
+		SystemRole:   "manager",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	tests := []struct {
+		name      string
+		email     string
+		password  string
+		setupRepo func(*mockAuthRepo)
+		wantErr   bool
+		wantType  customErrors.ErrorType
+	}{
+		{
+			name:     "success",
+			email:    "alice@example.com",
+			password: "password123",
+			setupRepo: func(repo *mockAuthRepo) {
+				repo.getUserByEmailFn = func(string) (*models.User, error) {
+					return baseUser, nil
+				}
+			},
+		},
+		{
+			name:     "wrong password",
+			email:    "alice@example.com",
+			password: "wrong-password",
+			setupRepo: func(repo *mockAuthRepo) {
+				repo.getUserByEmailFn = func(string) (*models.User, error) {
+					return baseUser, nil
+				}
+			},
+			wantErr:  true,
+			wantType: customErrors.ErrTypeUnauthorized,
+		},
+		{
+			name:     "missing user",
+			email:    "missing@example.com",
+			password: "password123",
+			setupRepo: func(repo *mockAuthRepo) {
+				repo.getUserByEmailFn = func(string) (*models.User, error) {
+					return nil, customErrors.NewNotFoundError("user")
+				}
+			},
+			wantErr:  true,
+			wantType: customErrors.ErrTypeUnauthorized,
+		},
+		{
+			name:     "repository error",
+			email:    "alice@example.com",
+			password: "password123",
+			setupRepo: func(repo *mockAuthRepo) {
+				repo.getUserByEmailFn = func(string) (*models.User, error) {
+					return nil, customErrors.NewInternalError("db unavailable", errors.New("boom"))
+				}
+			},
+			wantErr:  true,
+			wantType: customErrors.ErrTypeInternal,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &mockAuthRepo{}
+			if tc.setupRepo != nil {
+				tc.setupRepo(repo)
+			}
+			service := NewAuthService(repo)
+
+			token, err := service.Login(tc.email, tc.password)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !customErrors.IsErrorType(err, tc.wantType) {
+					t.Fatalf("expected error type %s, got %v", tc.wantType, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if token == "" {
+				t.Fatal("expected token, got empty string")
+			}
+
+			parsed, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
+				return jwtSecret, nil
+			})
+			if err != nil || !parsed.Valid {
+				t.Fatalf("token should be valid: %v", err)
+			}
+			claims, ok := parsed.Claims.(jwt.MapClaims)
+			if !ok {
+				t.Fatal("expected jwt.MapClaims")
+			}
+			if claims["user_id"] != float64(42) {
+				t.Fatalf("expected user_id 42, got %v", claims["user_id"])
+			}
+			if claims["system_role"] != "manager" {
+				t.Fatalf("expected system_role manager, got %v", claims["system_role"])
+			}
+			if _, ok := claims["exp"]; !ok {
+				t.Fatal("expected exp claim to exist")
 			}
 		})
 	}

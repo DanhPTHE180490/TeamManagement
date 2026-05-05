@@ -8,6 +8,7 @@ import (
 	"team-management/internal/auth"
 	"team-management/internal/database"
 	"team-management/internal/middleware"
+	"team-management/internal/team"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,17 +21,32 @@ func main() {
 	authService := auth.NewAuthService(authRepo)
 	authHandler := auth.NewAuthHandler(authService)
 
-	// We will initialize the Team Cake here next...
-	// teamRepo := team.NewTeamRepository(db)
-	// teamService := team.NewTeamService(teamRepo)
-	// teamHandler := team.NewTeamHandler(teamService)
+	teamRepo := team.NewTeamRepository(db)
+	teamService := team.NewTeamService(teamRepo)
+	teamHandler := team.NewTeamHandler(teamService)
 
 	router := gin.Default()
+
+	// Add CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
 
 	webDir := findWebDir()
 
 	router.Static("/static", filepath.Join(webDir, "static"))
 	router.StaticFile("/", filepath.Join(webDir, "index.html"))
+	router.StaticFile("/team.html", filepath.Join(webDir, "team.html"))
 
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
@@ -52,7 +68,7 @@ func main() {
 			})
 		})
 
-		// teamHandler.RegisterRoutes(protectedGroup) // We will attach Teams here
+		teamHandler.RegisterRoutes(protectedGroup) // We will attach Teams here
 	}
 
 	log.Println("Server starting on http://localhost:8080")
