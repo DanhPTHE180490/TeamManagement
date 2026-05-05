@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management - Teams</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .message.show {
+            display: flex;
+        }
+
+        .message-text {
+            flex: 1;
+            text-align: left;
+        }
+
+        .message-close {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 18px;
+            line-height: 1;
+            padding: 0;
+            width: auto;
+            cursor: pointer;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .teams-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .team-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .team-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .team-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .team-card p {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .team-card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .team-card button {
+            padding: 8px 15px;
+            font-size: 12px;
+        }
+
+        .form-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .members-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .members-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .member-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .member-role {
+            color: #666;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .member-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .member-actions button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state h2 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .loading {
+            opacity: 0.7;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #e9ecef;
+            color: #333;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        .back-btn:hover {
+            background: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Teams</h1>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="goToDashboard()">← Dashboard</button>
+                <button class="btn-primary" onclick="openCreateTeamModal()">+ Create Team</button>
+                <button class="btn-secondary" onclick="handleLogout()">Logout</button>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Teams List View -->
+        <div id="teamsListView" class="content active">
+            <div id="teamsList" class="teams-list"></div>
+        </div>
+
+        <!-- Team Details View -->
+        <div id="teamDetailsView" class="content">
+            <button class="back-btn" onclick="backToList()">← Back to Teams</button>
+            <div class="form-section">
+                <h2 id="teamNameDisplay"></h2>
+                <div class="form-group">
+                    <label>Team ID</label>
+                    <input type="text" id="teamIdDisplay" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Created At</label>
+                    <input type="text" id="teamCreatedAtDisplay" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Team Name</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="teamNameInput" style="flex: 1;">
+                        <button class="btn-primary" onclick="updateTeam()">Update</button>
+                    </div>
+                </div>
+
+                <div class="members-section">
+                    <h3>Team Members</h3>
+                    <div class="form-group">
+                        <label>Add Member (User ID)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="newMemberId" placeholder="Enter user ID" style="flex: 1;">
+                            <button class="btn-success" onclick="addMember()">Add</button>
+                        </div>
+                    </div>
+                    <div id="membersList" class="members-list"></div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn-danger" onclick="deleteTeam()">Delete Team</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Team Modal -->
+    <div id="createTeamModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Create New Team</div>
+            <div class="form-group">
+                <label>Team Name</label>
+                <input type="text" id="newTeamName" placeholder="Enter team name">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeCreateTeamModal()">Cancel</button>
+                <button class="btn-primary" onclick="createTeam()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        let currentTeamId = null;
+        let currentTeamData = null;
+
+        function showMessage(message, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.innerHTML = `
+                <span class="message-text"></span>
+                <button type="button" class="message-close" aria-label="Close message" onclick="closeMessage()">&times;</button>
+            `;
+            messageEl.querySelector('.message-text').textContent = message;
+            messageEl.className = `message show ${type}`;
+        }
+
+        function closeMessage() {
+            const messageEl = document.getElementById('message');
+            messageEl.className = 'message';
+            messageEl.textContent = '';
+        }
+
+        function getAuthHeader() {
+            const token = localStorage.getItem('token');
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function goToDashboard() {
+            window.location.href = '/';
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        async function loadTeams() {
+            try {
+                // First, get the user ID from the JWT token
+                const meResponse = await fetch(`${API_BASE_URL}/api/me`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!meResponse.ok) {
+                    showMessage('Failed to authenticate', 'error');
+                    window.location.href = '/';
+                    return;
+                }
+
+                const meData = await meResponse.json();
+                const userId = meData.user_id;
+
+                // Now fetch the user's teams
+                const teamsResponse = await fetch(`${API_BASE_URL}/api/teams/user/${userId}`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!teamsResponse.ok) {
+                    const errorData = await teamsResponse.json();
+                    showMessage(errorData.error || 'Failed to load teams', 'error');
+                    displayTeams([]);
+                    return;
+                }
+
+                const teamsData = await teamsResponse.json();
+                displayTeams(teamsData.teams || []);
+            } catch (error) {
+                console.error('Error loading teams:', error);
+                showMessage('Failed to load teams: ' + error.message, 'error');
+            }
+        }
+
+        function displayTeams(teams) {
+            const teamsList = document.getElementById('teamsList');
+            
+            if (!teams || teams.length === 0) {
+                teamsList.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No teams yet</h2>
+                        <p>Create your first team to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            teamsList.innerHTML = teams.map(team => `
+                <div class="team-card" onclick="viewTeam(${team.id})">
+                    <h3>${team.name}</h3>
+                    <p>ID: ${team.id}</p>
+                    <p>Created: ${new Date(team.created_at).toLocaleDateString()}</p>
+                    <div class="team-card-actions">
+                        <button class="btn-primary" onclick="event.stopPropagation(); viewTeam(${team.id})">View Details</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openCreateTeamModal() {
+            document.getElementById('createTeamModal').classList.add('active');
+        }
+
+        function closeCreateTeamModal() {
+            document.getElementById('createTeamModal').classList.remove('active');
+            document.getElementById('newTeamName').value = '';
+        }
+
+        async function createTeam() {
+            const name = document.getElementById('newTeamName').value.trim();
+
+            if (!name) {
+                showMessage('Team name is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams`, {
+                    method: 'POST',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({ name })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to create team', 'error');
+                    return;
+                }
+
+                showMessage('Team created successfully!', 'success');
+                closeCreateTeamModal();
+                await loadTeams();
+            } catch (error) {
+                console.error('Error creating team:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function viewTeam(teamId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!response.ok) {
+                    showMessage('Failed to load team details', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                currentTeamId = teamId;
+                currentTeamData = data.team;
+
+                document.getElementById('teamNameDisplay').textContent = data.team.name;
+                document.getElementById('teamIdDisplay').value = data.team.id;
+                document.getElementById('teamNameInput').value = data.team.name;
+                document.getElementById('teamCreatedAtDisplay').value = new Date(data.team.created_at).toLocaleString();
+
+                displayMembers(data.team.members || []);
+
+                document.getElementById('teamsListView').classList.remove('active');
+                document.getElementById('teamDetailsView').classList.add('active');
+            } catch (error) {
+                console.error('Error loading team details:', error);
+                showMessage('Failed to load team details', 'error');
+            }
+        }
+
+        function displayMembers(members) {
+            const membersList = document.getElementById('membersList');
+
+            if (!members || members.length === 0) {
+                membersList.innerHTML = '<p style="color: #999; text-align: center;">No members yet</p>';
+                return;
+            }
+
+            membersList.innerHTML = members.map(member => `
+                <div class="member-item">
+                    <div class="member-info">
+                        <span>User ID: ${member.user_id}</span>
+                        <span class="member-role">Role: ${member.role}</span>
+                    </div>
+                    <div class="member-actions">
+                        <button class="btn-secondary" onclick="removeMember(${member.user_id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateTeam() {
+            const newName = document.getElementById('teamNameInput').value.trim();
+
+            if (!newName) {
+                showMessage('Team name is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams/${currentTeamId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({ name: newName })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to update team', 'error');
+                    return;
+                }
+
+                showMessage('Team updated successfully!', 'success');
+                currentTeamData = data.team;
+                document.getElementById('teamNameDisplay').textContent = data.team.name;
+            } catch (error) {
+                console.error('Error updating team:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function addMember() {
+            const userId = document.getElementById('newMemberId').value.trim();
+
+            if (!userId) {
+                showMessage('User ID is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams/${currentTeamId}/members`, {
+                    method: 'POST',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({ user_id: parseInt(userId) })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to add member', 'error');
+                    return;
+                }
+
+                showMessage('Member added successfully!', 'success');
+                document.getElementById('newMemberId').value = '';
+                await viewTeam(currentTeamId);
+            } catch (error) {
+                console.error('Error adding member:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function removeMember(userId) {
+            if (!confirm('Are you sure you want to remove this member?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams/${currentTeamId}/members/${userId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to remove member', 'error');
+                    return;
+                }
+
+                showMessage('Member removed successfully!', 'success');
+                await viewTeam(currentTeamId);
+            } catch (error) {
+                console.error('Error removing member:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function deleteTeam() {
+            if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teams/${currentTeamId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to delete team', 'error');
+                    return;
+                }
+
+                showMessage('Team deleted successfully!', 'success');
+                setTimeout(() => {
+                    backToList();
+                    loadTeams();
+                }, 500);
+            } catch (error) {
+                console.error('Error deleting team:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        function backToList() {
+            document.getElementById('teamsListView').classList.add('active');
+            document.getElementById('teamDetailsView').classList.remove('active');
+            currentTeamId = null;
+        }
+
+        // Load teams on page load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            loadTeams();
+        });
+    </script>
+</body>
+</html>

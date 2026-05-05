@@ -1,7 +1,8 @@
 package auth
 
 import (
-	"errors"
+	"log"
+	"team-management/internal/errors"
 	"team-management/internal/models"
 	"time"
 
@@ -27,12 +28,32 @@ func NewAuthService(repo AuthRepository) AuthService {
 }
 
 func (s *authServiceImpl) Register(username, email, password, role string) (*models.User, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
+	// Validate input
+	if len(username) == 0 || len(username) > 50 {
+		return nil, errors.NewValidationError("username", "must be between 1 and 50 characters")
 	}
 
-	if role != "manager" {
+	if len(email) == 0 {
+		return nil, errors.NewValidationError("email", "cannot be empty")
+	}
+
+	if len(password) < 6 {
+		return nil, errors.NewValidationError("password", "must be at least 6 characters")
+	}
+
+	// Validate role
+	if role != "manager" && role != "member" && role != "admin" {
+		return nil, errors.NewValidationError("role", "must be 'manager', 'member', or 'admin'")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Failed to hash password for user %s: %v", username, err)
+		return nil, errors.NewInternalError("Failed to process password", err)
+	}
+
+	// Enforce role rules: only allow manager and admin, default others to member
+	if role != "manager" && role != "admin" {
 		role = "member"
 	}
 
@@ -47,21 +68,40 @@ func (s *authServiceImpl) Register(username, email, password, role string) (*mod
 
 	err = s.repo.CreateUser(user)
 	if err != nil {
-		return nil, err // This will bubble up if the email already exists
+		if errors.IsErrorType(err, errors.ErrTypeDuplicate) {
+			return nil, err // Already wrapped as duplicate error
+		}
+		log.Printf("Failed to create user %s: %v", email, err)
+		return nil, errors.NewInternalError("Failed to create user", err)
 	}
 
+	log.Printf("User registered successfully: %s (email: %s, role: %s)", username, email, role)
 	return user, nil
 }
 
 func (s *authServiceImpl) Login(email, password string) (string, error) {
+	// Validate input
+	if len(email) == 0 {
+		return "", errors.NewValidationError("email", "cannot be empty")
+	}
+	if len(password) == 0 {
+		return "", errors.NewValidationError("password", "cannot be empty")
+	}
+
 	user, err := s.repo.GetUserByEmail(email)
 	if err != nil {
-		return "", errors.New("invalid email or password") // Keep errors generic for security
+		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
+			log.Printf("Login attempt for non-existent user: %s", email)
+			return "", errors.NewUnauthorizedError("invalid email or password")
+		}
+		log.Printf("Database error during login for email %s: %v", email, err)
+		return "", errors.NewInternalError("Failed to authenticate user", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
-		return "", errors.New("invalid email or password")
+		log.Printf("Failed password attempt for user: %s", email)
+		return "", errors.NewUnauthorizedError("invalid email or password")
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -72,8 +112,10 @@ func (s *authServiceImpl) Login(email, password string) (string, error) {
 
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
-		return "", err
+		log.Printf("Failed to generate JWT token for user %d: %v", user.ID, err)
+		return "", errors.NewInternalError("Failed to generate authentication token", err)
 	}
 
+	log.Printf("User logged in successfully: %s (ID: %d)", email, user.ID)
 	return tokenString, nil
 }

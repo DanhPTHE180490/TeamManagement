@@ -248,6 +248,7 @@
         <div class="dashboard" id="dashboard">
             <h1>Welcome! 👋</h1>
             <div class="user-info" id="userInfo"></div>
+            <button type="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; padding: 12px; margin-top: 10px;" onclick="goToTeams()">Manage Teams</button>
             <button type="button" class="logout-btn" onclick="handleLogout()">Logout</button>
         </div>
     </div>
@@ -391,6 +392,10 @@
             document.getElementById('loginEmail').value = '';
             document.getElementById('loginPassword').value = '';
             clearMessages();
+        }
+
+        function goToTeams() {
+            window.location.href = '/team.html';
         }
 
         // Check if already logged in on page load
