@@ -3,6 +3,8 @@ package auth
 import (
 	"bytes"
 	stdErrors "errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,8 +20,11 @@ type mockAuthService struct {
 	registerErr   error
 	loginToken    string
 	loginErr      error
+	bulkSummary   *BulkImportSummary
+	bulkErr       error
 	registerInput []string
 	loginInput    []string
+	bulkInput     string
 }
 
 func (m *mockAuthService) Register(username, email, password, role string) (*models.User, error) {
@@ -32,10 +37,29 @@ func (m *mockAuthService) Login(email, password string) (string, error) {
 	return m.loginToken, m.loginErr
 }
 
+func (m *mockAuthService) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error) {
+	data, _ := io.ReadAll(reader)
+	m.bulkInput = string(data)
+	return m.bulkSummary, m.bulkErr
+}
+
 func newAuthTestRouter(service AuthService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	NewAuthHandler(service).RegisterRoutes(router)
+	return router
+}
+
+func newAuthProtectedTestRouter(service AuthService, userRole any) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		if userRole != nil {
+			c.Set("userRole", userRole)
+		}
+		c.Next()
+	})
+	NewAuthHandler(service).RegisterProtectedRoutes(router.Group("/api"))
 	return router
 }
 
@@ -155,6 +179,91 @@ func TestAuthHandler_Login(t *testing.T) {
 			}
 			if !bytes.Contains(w.Body.Bytes(), []byte(tc.expectedBody)) {
 				t.Fatalf("expected response body to contain %q, got %s", tc.expectedBody, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestAuthHandler_BulkImportUsers(t *testing.T) {
+	tests := []struct {
+		name         string
+		userRole     any
+		fileContent  string
+		service      *mockAuthService
+		expectedCode int
+		expectedBody string
+		expectInput  bool
+	}{
+		{
+			name:         "forbidden for member",
+			userRole:     "member",
+			service:      &mockAuthService{},
+			expectedCode: http.StatusForbidden,
+			expectedBody: "forbidden: only managers can bulk import users",
+		},
+		{
+			name:         "missing file",
+			userRole:     "manager",
+			service:      &mockAuthService{},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "failed to get file from request",
+		},
+		{
+			name:        "success",
+			userRole:    "manager",
+			fileContent: "alice,alice@example.com,password123,manager\n",
+			service: &mockAuthService{
+				bulkSummary: &BulkImportSummary{TotalProcessed: 1, Succeeded: 1, Failed: 0},
+			},
+			expectedCode: http.StatusOK,
+			expectedBody: "Import complete",
+			expectInput:  true,
+		},
+		{
+			name:         "service error",
+			userRole:     "main_manager",
+			fileContent:  "alice,alice@example.com,password123,manager\n",
+			service:      &mockAuthService{bulkErr: stdErrors.New("boom")},
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: "processing failed: boom",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			router := newAuthProtectedTestRouter(tc.service, tc.userRole)
+
+			var req *http.Request
+			if tc.fileContent == "" && tc.name == "missing file" {
+				req = httptest.NewRequest(http.MethodPost, "/api/auth/import-users", nil)
+			} else {
+				var body bytes.Buffer
+				writer := multipart.NewWriter(&body)
+				part, err := writer.CreateFormFile("file", "users.csv")
+				if err != nil {
+					t.Fatalf("failed to create multipart file: %v", err)
+				}
+				if _, err := io.Copy(part, bytes.NewBufferString(tc.fileContent)); err != nil {
+					t.Fatalf("failed to write multipart body: %v", err)
+				}
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close multipart writer: %v", err)
+				}
+				req = httptest.NewRequest(http.MethodPost, "/api/auth/import-users", &body)
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != tc.expectedCode {
+				t.Fatalf("expected status %d, got %d", tc.expectedCode, w.Code)
+			}
+			if !bytes.Contains(w.Body.Bytes(), []byte(tc.expectedBody)) {
+				t.Fatalf("expected response body to contain %q, got %s", tc.expectedBody, w.Body.String())
+			}
+			if tc.expectInput && !bytes.Contains([]byte(tc.service.bulkInput), []byte("alice@example.com")) {
+				t.Fatalf("expected uploaded CSV content to be passed to service, got %q", tc.service.bulkInput)
 			}
 		})
 	}

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management - Bulk Import Users</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f6f8fb;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .btn-primary {
+            background: #0d6efd;
+            color: white;
+        }
+
+        .btn-success {
+            background: #198754;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+
+        .help {
+            color: #4b5563;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .message.show {
+            display: flex;
+        }
+
+        .message.success {
+            background: #d1e7dd;
+            border: 1px solid #badbcc;
+            color: #0f5132;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            color: #842029;
+        }
+
+        .message-close {
+            border: none;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            width: auto;
+            padding: 0;
+        }
+
+        .upload-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="file"] {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 10px;
+            min-width: 280px;
+            background: #fff;
+        }
+
+        .meta {
+            margin-top: 10px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fafafa;
+        }
+
+        .summary-card strong {
+            display: block;
+            font-size: 22px;
+            margin-top: 4px;
+        }
+
+        .errors {
+            margin-top: 14px;
+        }
+
+        .errors ul {
+            padding-left: 18px;
+            color: #b42318;
+        }
+
+        .errors li {
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .permission-note {
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            color: #664d03;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .upload-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .upload-row .btn {
+                width: 100%;
+            }
+
+            input[type="file"] {
+                min-width: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bulk Import Users</h1>
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="goToDashboard()">Dashboard</button>
+                <button class="btn btn-secondary" onclick="goToTeams()">Teams</button>
+                <button class="btn btn-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div id="globalMessage" class="message"></div>
+
+        <div class="panel">
+            <h2>Upload CSV</h2>
+            <p class="help">Accepted columns in order: <strong>username,email,password,role</strong>. Roles should be <strong>manager</strong> or <strong>member</strong>.</p>
+            <p class="help">Example row: <strong>john,john@example.com,123456,member</strong></p>
+
+            <div id="permissionNote" class="permission-note"></div>
+
+            <div class="upload-row">
+                <input id="csvFile" type="file" accept=".csv,text/csv" />
+                <button id="importBtn" class="btn btn-success" onclick="importUsers()">Import Users</button>
+                <button class="btn btn-primary" onclick="downloadTemplate()">Download Template</button>
+            </div>
+            <p id="fileMeta" class="meta">No file selected</p>
+        </div>
+
+        <div class="panel">
+            <h2>Latest Import Result</h2>
+            <div id="summaryEmpty" class="help">No import has been run yet.</div>
+
+            <div id="summaryContent" style="display:none;">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        Total Processed
+                        <strong id="totalProcessed">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        Succeeded
+                        <strong id="totalSucceeded">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        Failed
+                        <strong id="totalFailed">0</strong>
+                    </div>
+                </div>
+
+                <div class="errors" id="errorBlock" style="display:none;">
+                    <h3 style="margin-top: 14px; margin-bottom: 8px;">Errors</h3>
+                    <ul id="errorList"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        let currentRole = '';
+
+        function showMessage(message, type) {
+            const messageEl = document.getElementById('globalMessage');
+            messageEl.innerHTML = `
+                <span>${message}</span>
+                <button type="button" class="message-close" aria-label="Close message" onclick="closeMessage()">&times;</button>
+            `;
+            messageEl.className = `message show ${type}`;
+        }
+
+        function closeMessage() {
+            const messageEl = document.getElementById('globalMessage');
+            messageEl.className = 'message';
+            messageEl.textContent = '';
+        }
+
+        function goToDashboard() {
+            globalThis.location.href = '/';
+        }
+
+        function goToTeams() {
+            globalThis.location.href = '/team.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            globalThis.location.href = '/';
+        }
+
+        function downloadTemplate() {
+            const csvContent = [
+                'username,email,password,role',
+                'alice,alice@example.com,secret123,member',
+                'bob,bob@example.com,secret123,manager'
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'bulk-import-template.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function getCurrentUser() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                globalThis.location.href = '/';
+                return null;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                localStorage.removeItem('token');
+                globalThis.location.href = '/';
+                return null;
+            }
+
+            return response.json();
+        }
+
+        function setPermissionState(role) {
+            const note = document.getElementById('permissionNote');
+            const importBtn = document.getElementById('importBtn');
+            const fileInput = document.getElementById('csvFile');
+
+            if (role !== 'manager' && role !== 'main_manager') {
+                note.style.display = 'block';
+                note.textContent = 'Your role does not allow bulk imports. Please login with a manager account.';
+                importBtn.disabled = true;
+                fileInput.disabled = true;
+            } else {
+                note.style.display = 'none';
+                importBtn.disabled = false;
+                fileInput.disabled = false;
+            }
+        }
+
+        async function importUsers() {
+            const fileInput = document.getElementById('csvFile');
+            const importBtn = document.getElementById('importBtn');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('Please choose a CSV file first.', 'error');
+                return;
+            }
+
+            if (currentRole !== 'manager' && currentRole !== 'main_manager') {
+                showMessage('Only managers can run bulk import.', 'error');
+                return;
+            }
+
+            importBtn.disabled = true;
+            importBtn.textContent = 'Importing...';
+
+            try {
+                const token = localStorage.getItem('token');
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(`${API_BASE_URL}/api/auth/import-users`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage(data.error || 'Import failed.', 'error');
+                    return;
+                }
+
+                showMessage('Import completed.', 'success');
+                renderSummary(data.summary);
+            } catch (error) {
+                console.error('Import error:', error);
+                showMessage('Network error while importing users.', 'error');
+            } finally {
+                importBtn.disabled = false;
+                importBtn.textContent = 'Import Users';
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('summaryEmpty').style.display = 'none';
+            document.getElementById('summaryContent').style.display = 'block';
+
+            document.getElementById('totalProcessed').textContent = summary.total_processed ?? 0;
+            document.getElementById('totalSucceeded').textContent = summary.succeeded ?? 0;
+            document.getElementById('totalFailed').textContent = summary.failed ?? 0;
+
+            const errorBlock = document.getElementById('errorBlock');
+            const errorList = document.getElementById('errorList');
+            errorList.innerHTML = '';
+
+            const errors = Array.isArray(summary.errors) ? summary.errors : [];
+            if (errors.length === 0) {
+                errorBlock.style.display = 'none';
+                return;
+            }
+
+            errorBlock.style.display = 'block';
+            errors.forEach((errMsg) => {
+                const li = document.createElement('li');
+                li.textContent = errMsg;
+                errorList.appendChild(li);
+            });
+        }
+
+        window.addEventListener('load', async () => {
+            try {
+                const me = await getCurrentUser();
+                if (!me) {
+                    return;
+                }
+                currentRole = me.role || '';
+                setPermissionState(currentRole);
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showMessage('Failed to initialize page.', 'error');
+            }
+        });
+
+        document.getElementById('csvFile').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const fileMeta = document.getElementById('fileMeta');
+            if (!file) {
+                fileMeta.textContent = 'No file selected';
+                return;
+            }
+            fileMeta.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+        });
+    </script>
+</body>
+</html>

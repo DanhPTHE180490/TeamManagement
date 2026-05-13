@@ -1,7 +1,11 @@
 package auth
 
 import (
+	"encoding/csv"
+	"fmt"
+	"io"
 	"log"
+	"sync"
 	"team-management/internal/errors"
 	"team-management/internal/models"
 	"time"
@@ -12,10 +16,32 @@ import (
 
 var jwtSecret = []byte("super-secret-capstone-key")
 
+type UserImportJob struct {
+	RowNumber int
+	Username  string
+	Email     string
+	Password  string
+	Role      string
+}
+
+type UserImportResult struct {
+	RowNumber int
+	Success   bool
+	ErrorMsg  string
+}
+
+type BulkImportSummary struct {
+	TotalProcessed int      `json:"total_processed"`
+	Succeeded      int      `json:"succeeded"`
+	Failed         int      `json:"failed"`
+	Errors         []string `json:"errors"`
+}
+
 // AuthService defines the business logic interface
 type AuthService interface {
 	Register(username, email, password, role string) (*models.User, error)
 	Login(email, password string) (string, error)
+	BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error)
 }
 
 type authServiceImpl struct {
@@ -118,4 +144,85 @@ func (s *authServiceImpl) Login(email, password string) (string, error) {
 
 	log.Printf("User logged in successfully: %s (ID: %d)", email, user.ID)
 	return tokenString, nil
+}
+
+func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error) {
+	csvReader := csv.NewReader(reader)
+	var wg sync.WaitGroup
+	jobChan := make(chan UserImportJob)
+	resultChan := make(chan UserImportResult)
+
+	numWorkers := 5
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go s.processImportJobs(&wg, jobChan, resultChan)
+	}
+
+	go func() {
+		defer close(jobChan)
+		if _, err := csvReader.Read(); err != nil {
+			return
+		}
+
+		rowNumber := 2
+		for {
+			record, err := csvReader.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("Error reading CSV at row %d: %v", rowNumber, err)
+				resultChan <- UserImportResult{RowNumber: rowNumber, Success: false, ErrorMsg: fmt.Sprintf("CSV read error: %v", err)}
+				rowNumber++
+				continue
+			}
+
+			if len(record) < 4 {
+				log.Printf("Invalid CSV format at row %d: expected 4 fields, got %d", rowNumber, len(record))
+				resultChan <- UserImportResult{RowNumber: rowNumber, Success: false, ErrorMsg: "Invalid CSV format: expected 4 fields"}
+				rowNumber++
+				continue
+			}
+
+			jobChan <- UserImportJob{
+				RowNumber: rowNumber,
+				Username:  record[0],
+				Email:     record[1],
+				Password:  record[2],
+				Role:      record[3],
+			}
+			rowNumber++
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	summary := &BulkImportSummary{}
+	for result := range resultChan {
+		summary.TotalProcessed++
+		if result.Success {
+			summary.Succeeded++
+		} else {
+			summary.Failed++
+			summary.Errors = append(summary.Errors, fmt.Sprintf("Row %d: %s", result.RowNumber, result.ErrorMsg))
+		}
+	}
+
+	log.Printf("Bulk import completed: %d processed, %d succeeded, %d failed", summary.TotalProcessed, summary.Succeeded, summary.Failed)
+	return summary, nil
+}
+
+func (s *authServiceImpl) processImportJobs(wg *sync.WaitGroup, jobChan <-chan UserImportJob, resultChan chan<- UserImportResult) {
+	defer wg.Done()
+	for job := range jobChan {
+		_, err := s.Register(job.Username, job.Email, job.Password, job.Role)
+		if err != nil {
+			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: false, ErrorMsg: err.Error()}
+		} else {
+			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: true}
+		}
+	}
 }

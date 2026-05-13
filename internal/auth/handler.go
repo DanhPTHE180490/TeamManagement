@@ -27,6 +27,13 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 	}
 }
 
+func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
+	authGroup := protectedGroup.Group("/auth")
+	{
+		authGroup.POST("/import-users", h.BulkImportUsers)
+	}
+}
+
 // Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req struct {
@@ -94,5 +101,37 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	// Using JWT is stateless so we can't invalidate tokens server-side without additional infrastructure (like a blacklist).
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logout successful (client should delete the token)",
+	})
+}
+
+func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
+	userRole, exists := c.Get("userRole")
+	if !exists || (userRole != "manager" && userRole != "main_manager") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only managers can bulk import users"})
+		return
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to get file from request: " + err.Error()})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file stream"})
+		return
+	}
+	defer file.Close()
+
+	summary, err := h.service.BulkImportUsersFromCSV(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "processing failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Import complete",
+		"summary": summary,
 	})
 }
