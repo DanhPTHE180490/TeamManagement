@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 	"team-management/internal/errors"
 	"team-management/internal/models"
@@ -16,12 +17,15 @@ import (
 
 var jwtSecret = []byte("super-secret-capstone-key")
 
+var maxBulkImportRows = 1000
+
 type UserImportJob struct {
 	RowNumber int
 	Username  string
 	Email     string
 	Password  string
 	Role      string
+	ErrorMsg  string
 }
 
 type UserImportResult struct {
@@ -161,25 +165,36 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportS
 	go func() {
 		defer close(jobChan)
 		if _, err := csvReader.Read(); err != nil {
+			if err == io.EOF {
+				return
+			}
+			jobChan <- UserImportJob{RowNumber: 1, ErrorMsg: fmt.Sprintf("CSV header read error: %v", err)}
 			return
 		}
 
 		rowNumber := 2
+		rowsSeen := 0
 		for {
+			if rowsSeen >= maxBulkImportRows {
+				jobChan <- UserImportJob{RowNumber: rowNumber, ErrorMsg: fmt.Sprintf("bulk import limit exceeded: maximum %d rows", maxBulkImportRows)}
+				return
+			}
+
 			record, err := csvReader.Read()
 			if err == io.EOF {
 				break
 			}
+			rowsSeen++
 			if err != nil {
 				log.Printf("Error reading CSV at row %d: %v", rowNumber, err)
-				resultChan <- UserImportResult{RowNumber: rowNumber, Success: false, ErrorMsg: fmt.Sprintf("CSV read error: %v", err)}
+				jobChan <- UserImportJob{RowNumber: rowNumber, ErrorMsg: fmt.Sprintf("CSV read error: %v", err)}
 				rowNumber++
 				continue
 			}
 
 			if len(record) < 4 {
 				log.Printf("Invalid CSV format at row %d: expected 4 fields, got %d", rowNumber, len(record))
-				resultChan <- UserImportResult{RowNumber: rowNumber, Success: false, ErrorMsg: "Invalid CSV format: expected 4 fields"}
+				jobChan <- UserImportJob{RowNumber: rowNumber, ErrorMsg: "Invalid CSV format: expected 4 fields"}
 				rowNumber++
 				continue
 			}
@@ -199,7 +214,6 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportS
 		wg.Wait()
 		close(resultChan)
 	}()
-
 	summary := &BulkImportSummary{}
 	for result := range resultChan {
 		summary.TotalProcessed++
@@ -218,9 +232,21 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportS
 func (s *authServiceImpl) processImportJobs(wg *sync.WaitGroup, jobChan <-chan UserImportJob, resultChan chan<- UserImportResult) {
 	defer wg.Done()
 	for job := range jobChan {
+		if job.ErrorMsg != "" {
+			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: false, ErrorMsg: job.ErrorMsg}
+			continue
+		}
 		_, err := s.Register(job.Username, job.Email, job.Password, job.Role)
 		if err != nil {
-			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: false, ErrorMsg: err.Error()}
+			log.Printf("Row %d import failed for user %s: %v", job.RowNumber, job.Username, err)
+
+			safeError := "failed to register user"
+
+			if strings.Contains(err.Error(), "must be") || strings.Contains(err.Error(), "cannot be empty") || strings.Contains(err.Error(), "duplicate") {
+				safeError = err.Error()
+			}
+
+			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: false, ErrorMsg: safeError}
 		} else {
 			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: true}
 		}

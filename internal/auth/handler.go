@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 
 	customErrors "team-management/internal/errors"
 
@@ -12,6 +13,8 @@ import (
 type AuthHandler struct {
 	service AuthService
 }
+
+var maxBulkImportUploadBytes int64 = 10 * 1024 * 1024
 
 // NewAuthHandler is the constructor
 func NewAuthHandler(service AuthService) *AuthHandler {
@@ -111,8 +114,14 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 		return
 	}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBulkImportUploadBytes)
+
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
+		if strings.Contains(err.Error(), "http: request body too large") {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file too large: maximum upload size exceeded"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to get file from request: " + err.Error()})
 		return
 	}

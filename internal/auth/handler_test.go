@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	customErrors "team-management/internal/errors"
@@ -22,6 +23,7 @@ type mockAuthService struct {
 	loginErr      error
 	bulkSummary   *BulkImportSummary
 	bulkErr       error
+	bulkCalled    bool
 	registerInput []string
 	loginInput    []string
 	bulkInput     string
@@ -38,6 +40,7 @@ func (m *mockAuthService) Login(email, password string) (string, error) {
 }
 
 func (m *mockAuthService) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error) {
+	m.bulkCalled = true
 	data, _ := io.ReadAll(reader)
 	m.bulkInput = string(data)
 	return m.bulkSummary, m.bulkErr
@@ -266,5 +269,45 @@ func TestAuthHandler_BulkImportUsers(t *testing.T) {
 				t.Fatalf("expected uploaded CSV content to be passed to service, got %q", tc.service.bulkInput)
 			}
 		})
+	}
+}
+
+func TestAuthHandler_BulkImportUsers_RejectsLargeUpload(t *testing.T) {
+	previousLimit := maxBulkImportUploadBytes
+	maxBulkImportUploadBytes = 64
+	t.Cleanup(func() {
+		maxBulkImportUploadBytes = previousLimit
+	})
+
+	repo := &mockAuthService{}
+	router := newAuthProtectedTestRouter(repo, "manager")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "users.csv")
+	if err != nil {
+		t.Fatalf("failed to create multipart file: %v", err)
+	}
+	if _, err := io.Copy(part, bytes.NewBufferString("username,email,password,role\n"+strings.Repeat("a", 256))); err != nil {
+		t.Fatalf("failed to write multipart body: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/import-users", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected status %d, got %d", http.StatusRequestEntityTooLarge, w.Code)
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("file too large")) {
+		t.Fatalf("expected response body to mention file too large, got %s", w.Body.String())
+	}
+	if repo.bulkCalled {
+		t.Fatal("expected bulk import service not to be called")
 	}
 }

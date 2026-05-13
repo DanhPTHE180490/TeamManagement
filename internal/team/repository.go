@@ -80,12 +80,40 @@ func (r *teamRepository) GetTeamByID(id int64) (*models.Team, error) {
 		log.Printf("Database error retrieving team %d: %v", id, err)
 		return nil, errors.NewInternalError("failed to retrieve team", err)
 	}
+
+	membersQuery := `
+		SELECT user_id, team_role, joined_at
+		FROM team_members
+		WHERE team_id = ?
+		ORDER BY joined_at ASC`
+	membersRows, err := r.db.Query(membersQuery, id)
+	if err != nil {
+		log.Printf("Database error retrieving members for team %d: %v", id, err)
+		return nil, errors.NewInternalError("failed to retrieve team members", err)
+	}
+	defer membersRows.Close()
+
+	team.Members = make([]models.TeamMember, 0)
+	for membersRows.Next() {
+		member := models.TeamMember{}
+		if err := membersRows.Scan(&member.UserID, &member.TeamRole, &member.JoinedAt); err != nil {
+			log.Printf("Error scanning member row for team %d: %v", id, err)
+			return nil, errors.NewInternalError("failed to parse team members", err)
+		}
+		member.TeamID = id
+		team.Members = append(team.Members, member)
+	}
+
+	if err = membersRows.Err(); err != nil {
+		log.Printf("Error iterating members for team %d: %v", id, err)
+		return nil, errors.NewInternalError("failed to retrieve team members", err)
+	}
 	return team, nil
 }
 
 func (r *teamRepository) GetTeamsByUserID(userID int64) ([]*models.Team, error) {
 	query := `
-		SELECT t.id, t.name
+		SELECT t.id, t.name, t.created_at, t.updated_at
 		FROM teams t
 		JOIN team_members tm ON t.id = tm.team_id
 		WHERE tm.user_id = ?`
@@ -99,7 +127,7 @@ func (r *teamRepository) GetTeamsByUserID(userID int64) ([]*models.Team, error) 
 	var teams []*models.Team
 	for rows.Next() {
 		team := &models.Team{}
-		if err := rows.Scan(&team.ID, &team.Name); err != nil {
+		if err := rows.Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt); err != nil {
 			log.Printf("Error scanning team row for user %d: %v", userID, err)
 			return nil, errors.NewInternalError("failed to parse team data", err)
 		}
