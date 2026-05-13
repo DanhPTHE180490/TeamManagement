@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+INSERT INTO users (username, email, password_hash, system_role) VALUES
+('Admin', 'admin@example.com', '$2a$10$Ylqycc.m0K2oJkvdomU5f.6Yb8.sco0oQWF8r36J76ideDPS.bCGO', 'manager');
+
 -- ==========================================
 -- 2. TEAMS TABLE
 -- ==========================================
@@ -53,3 +56,47 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE INDEX idx_users_email ON users(email);
 -- Speeds up "Find all teams for User X" queries
 CREATE INDEX idx_team_members_user ON team_members(user_id);
+
+-- ==========================================
+-- 5. FOLDERS TABLE
+-- ==========================================
+CREATE TABLE folders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    owner_id BIGINT NOT NULL, -- FK to users
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 6. NOTES TABLE
+-- ==========================================
+CREATE TABLE notes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    folder_id BIGINT NOT NULL, -- FK to folders
+    owner_id BIGINT NOT NULL,  -- FK to users
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 7. FOLDER_SHARES TABLE (Junction table for sharing folders with teams)
+-- ==========================================
+CREATE TABLE folder_shares (
+    folder_id BIGINT NOT NULL,
+    shared_with_user_id BIGINT NOT NULL,
+    permission_level ENUM('read', 'write') NOT NULL,
+    PRIMARY KEY (folder_id, shared_with_user_id)
+);
+
+-- ==========================================
+-- 8. NOTE_SHARES TABLE (Junction table for sharing notes with users)
+-- ==========================================
+CREATE TABLE note_shares (
+    note_id BIGINT NOT NULL,
+    shared_with_user_id BIGINT NOT NULL,
+    permission_level ENUM('read', 'write') NOT NULL,
+    PRIMARY KEY (note_id, shared_with_user_id)
+);

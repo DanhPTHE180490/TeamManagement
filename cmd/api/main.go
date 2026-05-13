@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"team-management/internal/asset"
 	"team-management/internal/auth"
 	"team-management/internal/database"
 	"team-management/internal/middleware"
@@ -24,6 +25,10 @@ func main() {
 	teamRepo := team.NewTeamRepository(db)
 	teamService := team.NewTeamService(teamRepo)
 	teamHandler := team.NewTeamHandler(teamService)
+
+	assetRepo := asset.NewAssetRepository(db)
+	assetService := asset.NewAssetService(assetRepo)
+	assetHandler := asset.NewAssetHandler(assetService)
 
 	router := gin.Default()
 
@@ -68,7 +73,8 @@ func main() {
 			})
 		})
 
-		teamHandler.RegisterRoutes(protectedGroup) // We will attach Teams here
+		teamHandler.RegisterRoutes(protectedGroup)
+		assetHandler.RegisterRoutes(protectedGroup)
 	}
 
 	log.Println("Server starting on http://localhost:8080")
