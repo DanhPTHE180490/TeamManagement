@@ -249,6 +249,7 @@
             <h1>Welcome! 👋</h1>
             <div class="user-info" id="userInfo"></div>
             <button type="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; padding: 12px; margin-top: 10px;" onclick="goToTeams()">Manage Teams</button>
+            <button type="button" style="background: #198754; color: white; width: 100%; padding: 12px; margin-top: 10px;" onclick="goToImportUsers()">Bulk Import Users</button>
             <button type="button" class="logout-btn" onclick="handleLogout()">Logout</button>
         </div>
     </div>
@@ -395,7 +396,11 @@
         }
 
         function goToTeams() {
-            window.location.href = '/team.html';
+            globalThis.location.href = '/team.html';
+        }
+
+        function goToImportUsers() {
+            globalThis.location.href = '/import-users.html';
         }
 
         // Check if already logged in on page load
