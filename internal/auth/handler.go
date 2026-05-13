@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 
 	customErrors "team-management/internal/errors"
 
@@ -12,6 +13,8 @@ import (
 type AuthHandler struct {
 	service AuthService
 }
+
+var maxBulkImportUploadBytes int64 = 10 * 1024 * 1024
 
 // NewAuthHandler is the constructor
 func NewAuthHandler(service AuthService) *AuthHandler {
@@ -24,6 +27,13 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 	{
 		authGroup.POST("/register", h.Register)
 		authGroup.POST("/login", h.Login)
+	}
+}
+
+func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
+	authGroup := protectedGroup.Group("/auth")
+	{
+		authGroup.POST("/import-users", h.BulkImportUsers)
 	}
 }
 
@@ -94,5 +104,43 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	// Using JWT is stateless so we can't invalidate tokens server-side without additional infrastructure (like a blacklist).
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logout successful (client should delete the token)",
+	})
+}
+
+func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
+	userRole, exists := c.Get("userRole")
+	if !exists || (userRole != "manager" && userRole != "main_manager") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only managers can bulk import users"})
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBulkImportUploadBytes)
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		if strings.Contains(err.Error(), "http: request body too large") {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file too large: maximum upload size exceeded"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to get file from request: " + err.Error()})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file stream"})
+		return
+	}
+	defer file.Close()
+
+	summary, err := h.service.BulkImportUsersFromCSV(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "processing failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Import complete",
+		"summary": summary,
 	})
 }

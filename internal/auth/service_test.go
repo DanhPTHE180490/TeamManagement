@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -246,5 +247,75 @@ func TestAuthService_Login(t *testing.T) {
 				t.Fatal("expected exp claim to exist")
 			}
 		})
+	}
+}
+
+func TestAuthService_BulkImportUsersFromCSV(t *testing.T) {
+	repo := &mockAuthRepo{}
+	service := NewAuthService(repo)
+
+	summary, err := service.BulkImportUsersFromCSV(strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbad-row-only\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if summary.TotalProcessed != 2 {
+		t.Fatalf("expected 2 processed rows, got %d", summary.TotalProcessed)
+	}
+	if summary.Succeeded != 1 {
+		t.Fatalf("expected 1 success, got %d", summary.Succeeded)
+	}
+	if summary.Failed != 1 {
+		t.Fatalf("expected 1 failure, got %d", summary.Failed)
+	}
+	if len(summary.Errors) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(summary.Errors))
+	}
+	if !strings.Contains(summary.Errors[0], "Row 3: CSV read error:") {
+		t.Fatalf("unexpected error message: %q", summary.Errors[0])
+	}
+	if len(repo.createdUsers) != 1 {
+		t.Fatalf("expected 1 created user, got %d", len(repo.createdUsers))
+	}
+	if repo.createdUsers[0].Email != "alice@example.com" {
+		t.Fatalf("unexpected created user email: %s", repo.createdUsers[0].Email)
+	}
+	if repo.createdUsers[0].SystemRole != "manager" {
+		t.Fatalf("unexpected created user role: %s", repo.createdUsers[0].SystemRole)
+	}
+}
+
+func TestAuthService_BulkImportUsersFromCSV_RespectsRowLimit(t *testing.T) {
+	previousLimit := maxBulkImportRows
+	maxBulkImportRows = 1
+	t.Cleanup(func() {
+		maxBulkImportRows = previousLimit
+	})
+
+	repo := &mockAuthRepo{}
+	service := NewAuthService(repo)
+
+	summary, err := service.BulkImportUsersFromCSV(strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbob,bob@example.com,password123,member\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if summary.TotalProcessed != 2 {
+		t.Fatalf("expected 2 processed rows, got %d", summary.TotalProcessed)
+	}
+	if summary.Succeeded != 1 {
+		t.Fatalf("expected 1 success, got %d", summary.Succeeded)
+	}
+	if summary.Failed != 1 {
+		t.Fatalf("expected 1 failure, got %d", summary.Failed)
+	}
+	if len(summary.Errors) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(summary.Errors))
+	}
+	if !strings.Contains(summary.Errors[0], "bulk import limit exceeded") {
+		t.Fatalf("unexpected error message: %q", summary.Errors[0])
+	}
+	if len(repo.createdUsers) != 1 {
+		t.Fatalf("expected 1 created user, got %d", len(repo.createdUsers))
 	}
 }

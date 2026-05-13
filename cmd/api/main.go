@@ -52,6 +52,7 @@ func main() {
 	router.Static("/static", filepath.Join(webDir, "static"))
 	router.StaticFile("/", filepath.Join(webDir, "index.html"))
 	router.StaticFile("/team.html", filepath.Join(webDir, "team.html"))
+	router.StaticFile("/import-users.html", filepath.Join(webDir, "import-users.html"))
 
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
@@ -72,7 +73,7 @@ func main() {
 				"role":    userRole,
 			})
 		})
-
+		authHandler.RegisterProtectedRoutes(protectedGroup)
 		teamHandler.RegisterRoutes(protectedGroup)
 		assetHandler.RegisterRoutes(protectedGroup)
 	}
