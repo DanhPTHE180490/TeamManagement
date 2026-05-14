@@ -52,6 +52,7 @@ func main() {
 	router.Static("/static", filepath.Join(webDir, "static"))
 	router.StaticFile("/", filepath.Join(webDir, "index.html"))
 	router.StaticFile("/team.html", filepath.Join(webDir, "team.html"))
+	router.StaticFile("/notes.html", filepath.Join(webDir, "notes.html"))
 	router.StaticFile("/import-users.html", filepath.Join(webDir, "import-users.html"))
 
 	router.GET("/ping", func(c *gin.Context) {

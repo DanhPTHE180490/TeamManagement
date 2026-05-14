@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management - Notes & Folders</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        h2 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .message.show {
+            display: flex;
+        }
+
+        .message-text {
+            flex: 1;
+            text-align: left;
+        }
+
+        .message-close {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 18px;
+            line-height: 1;
+            padding: 0;
+            width: auto;
+            cursor: pointer;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .tab-button:hover {
+            background: white;
+        }
+
+        .list-container {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .card p {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .card-meta {
+            color: #999;
+            font-size: 12px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .card-actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .card-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e9ecef;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .form-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .sharing-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .share-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .share-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .share-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .share-role {
+            color: #666;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .share-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .share-actions button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state h2 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #e9ecef;
+            color: #333;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #dee2e6;
+        }
+
+        .breadcrumb {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .breadcrumb button {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+            font: inherit;
+        }
+
+        .breadcrumb button:hover {
+            color: #764ba2;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .header-actions button {
+                width: 100%;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab-button {
+                border-bottom: none;
+                border-left: 3px solid transparent;
+            }
+
+            .tab-button.active {
+                border-left-color: #667eea;
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Notes & Folders</h1>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="goToDashboard()">← Dashboard</button>
+                <button class="btn-secondary" onclick="goToTeams()">Teams</button>
+                <button class="btn-primary" onclick="openCreateFolderModal()">+ New Folder</button>
+                <button class="btn-primary" onclick="openCreateModal()">+ New Note</button>
+                <button class="btn-secondary" onclick="handleLogout()">Logout</button>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <!-- List View -->
+        <div id="listView" class="content active">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('notes')">All Notes</button>
+                <button class="tab-button" onclick="switchTab('folders')">Folders</button>
+                <button class="tab-button" onclick="switchTab('shared')">Shared With Me</button>
+            </div>
+
+            <!-- Notes Tab -->
+            <div id="notesTab" class="tab-content active">
+                <div id="notesList" class="list-container"></div>
+            </div>
+
+            <!-- Folders Tab -->
+            <div id="foldersTab" class="tab-content" style="display: none;">
+                <div id="foldersList" class="list-container"></div>
+            </div>
+
+            <!-- Shared Tab -->
+            <div id="sharedTab" class="tab-content" style="display: none;">
+                <div id="sharedList" class="list-container"></div>
+            </div>
+        </div>
+
+        <!-- Detail View -->
+        <div id="detailView" class="content">
+            <button class="back-btn" onclick="backToList()">← Back to Notes</button>
+            
+            <div class="form-section">
+                <div>
+                    <h2 id="noteTitle"></h2>
+                    <div class="card-meta" id="noteMeta"></div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Title</label>
+                    <input type="text" id="editTitle" placeholder="Enter note title">
+                </div>
+
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea id="editContent" placeholder="Enter note content"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Folder</label>
+                    <select id="editFolder">
+                        <option value="">No Folder</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-primary" onclick="updateNote()">Save Changes</button>
+                    <button class="btn-secondary" onclick="backToList()">Cancel</button>
+                </div>
+
+                <div class="sharing-section">
+                    <h3>Share with Team Members</h3>
+                    <div class="form-group">
+                        <label>User ID</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="shareUserId" placeholder="Enter user ID" style="flex: 1;">
+                            <select id="sharePermission" style="flex: 0.5;">
+                                <option value="view">View</option>
+                                <option value="edit">Edit</option>
+                            </select>
+                            <button class="btn-success" onclick="shareNote()">Share</button>
+                        </div>
+                    </div>
+                    <div id="shareList" class="share-list"></div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn-danger" onclick="deleteNote()">Delete Note</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Note Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Create New Note</div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="newNoteTitle" placeholder="Enter note title">
+            </div>
+            <div class="form-group">
+                <label>Content</label>
+                <textarea id="newNoteContent" placeholder="Enter note content"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Folder (Optional)</label>
+                <select id="newNoteFolder">
+                    <option value="">No Folder</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn-primary" onclick="createNote()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Folder Modal -->
+    <div id="createFolderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Create New Folder</div>
+            <div class="form-group">
+                <label>Folder Name</label>
+                <input type="text" id="newFolderName" placeholder="Enter folder name">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeCreateFolderModal()">Cancel</button>
+                <button class="btn-primary" onclick="createFolder()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        let currentNoteId = null;
+        let currentNoteData = null;
+        let currentTab = 'notes';
+        let allFolders = [];
+        let allNotes = [];
+        let allSharedNotes = [];
+
+        function showMessage(message, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.innerHTML = `
+                <span class="message-text"></span>
+                <button type="button" class="message-close" aria-label="Close message" onclick="closeMessage()">&times;</button>
+            `;
+            messageEl.querySelector('.message-text').textContent = message;
+            messageEl.className = `message show ${type}`;
+        }
+
+        function closeMessage() {
+            const messageEl = document.getElementById('message');
+            messageEl.className = 'message';
+            messageEl.textContent = '';
+        }
+
+        function getAuthHeader() {
+            const token = localStorage.getItem('token');
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function goToDashboard() {
+            window.location.href = '/';
+        }
+
+        function goToTeams() {
+            window.location.href = '/team.html';
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach((btn, index) => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            if (tab === 'notes') {
+                document.getElementById('notesTab').style.display = 'block';
+            } else if (tab === 'folders') {
+                document.getElementById('foldersTab').style.display = 'block';
+            } else if (tab === 'shared') {
+                document.getElementById('sharedTab').style.display = 'block';
+            }
+        }
+
+        async function loadNotes() {
+            try {
+                const meResponse = await fetch(`${API_BASE_URL}/api/me`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!meResponse.ok) {
+                    showMessage('Failed to authenticate', 'error');
+                    window.location.href = '/';
+                    return;
+                }
+
+                const meData = await meResponse.json();
+                const userId = meData.user_id;
+
+                // Load user's notes
+                const notesResponse = await fetch(`${API_BASE_URL}/api/notes/user/${userId}`, {
+                    headers: getAuthHeader()
+                });
+
+                if (notesResponse.ok) {
+                    const notesData = await notesResponse.json();
+                    allNotes = notesData.notes || [];
+                    displayNotes(allNotes);
+                }
+
+                // Load folders
+                await loadFolders();
+
+                // Load shared notes
+                const sharedResponse = await fetch(`${API_BASE_URL}/api/notes/shared`, {
+                    headers: getAuthHeader()
+                });
+
+                if (sharedResponse.ok) {
+                    const sharedData = await sharedResponse.json();
+                    allSharedNotes = sharedData.notes || [];
+                    displaySharedNotes(allSharedNotes);
+                }
+            } catch (error) {
+                console.error('Error loading notes:', error);
+                showMessage('Failed to load notes: ' + error.message, 'error');
+            }
+        }
+
+        async function loadFolders() {
+            try {
+                const meResponse = await fetch(`${API_BASE_URL}/api/me`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!meResponse.ok) return;
+
+                const meData = await meResponse.json();
+                const userId = meData.user_id;
+
+                const foldersResponse = await fetch(`${API_BASE_URL}/api/folders/user/${userId}`, {
+                    headers: getAuthHeader()
+                });
+
+                if (foldersResponse.ok) {
+                    const foldersData = await foldersResponse.json();
+                    allFolders = foldersData.folders || [];
+                    displayFolders(allFolders);
+                    updateFolderSelects();
+                }
+            } catch (error) {
+                console.error('Error loading folders:', error);
+            }
+        }
+
+        function updateFolderSelects() {
+            const folderSelects = ['editFolder', 'newNoteFolder'];
+            
+            folderSelects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                const currentValue = select.value;
+                
+                select.innerHTML = '<option value="">No Folder</option>';
+                allFolders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    select.appendChild(option);
+                });
+                
+                select.value = currentValue;
+            });
+        }
+
+        function displayNotes(notes) {
+            const notesList = document.getElementById('notesList');
+            
+            if (!notes || notes.length === 0) {
+                notesList.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h2>No notes yet</h2>
+                        <p>Create your first note to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            notesList.innerHTML = notes.map(note => `
+                <div class="card" onclick="viewNote(${note.id})">
+                    ${note.folder_id ? `<div class="card-badge">📁 ${note.folder_name || 'Folder'}</div>` : ''}
+                    <h3>${note.title}</h3>
+                    <p>${note.content}</p>
+                    <div class="card-meta">
+                        <p>Created: ${new Date(note.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-primary" onclick="event.stopPropagation(); viewNote(${note.id})">Edit</button>
+                        <button class="btn-danger" onclick="event.stopPropagation(); deleteNoteFromList(${note.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function deleteNoteFromList(noteID) {
+            if (!confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${noteID}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to delete note', 'error');
+                    return;
+                }
+
+                showMessage('Note deleted successfully!', 'success');
+                await loadNotes();
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        function displayFolders(folders) {
+            const foldersList = document.getElementById('foldersList');
+            
+            if (!folders || folders.length === 0) {
+                foldersList.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h2>No folders yet</h2>
+                        <p>Folders help you organize your notes</p>
+                    </div>
+                `;
+                return;
+            }
+
+            foldersList.innerHTML = folders.map(folder => `
+                <div class="card">
+                    <h3>📁 ${folder.name}</h3>
+                    <div class="card-meta">
+                        <p>Created: ${new Date(folder.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-danger" onclick="deleteFolder(${folder.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displaySharedNotes(notes) {
+            const sharedList = document.getElementById('sharedList');
+            
+            if (!notes || notes.length === 0) {
+                sharedList.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h2>No shared notes</h2>
+                        <p>Notes shared with you will appear here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            sharedList.innerHTML = notes.map(note => `
+                <div class="card" onclick="viewNote(${note.id})">
+                    <div class="card-badge">👤 Shared by ${note.owner_name || 'User'}</div>
+                    <h3>${note.title}</h3>
+                    <p>${note.content}</p>
+                    <div class="card-meta">
+                        <p>Permission: ${note.permission}</p>
+                        <p>Created: ${new Date(note.created_at).toLocaleDateString()}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            document.getElementById('newNoteTitle').value = '';
+            document.getElementById('newNoteContent').value = '';
+            document.getElementById('newNoteFolder').value = '';
+        }
+
+        function openCreateFolderModal() {
+            document.getElementById('createFolderModal').classList.add('active');
+        }
+
+        function closeCreateFolderModal() {
+            document.getElementById('createFolderModal').classList.remove('active');
+            document.getElementById('newFolderName').value = '';
+        }
+
+        async function createNote() {
+            const title = document.getElementById('newNoteTitle').value.trim();
+            const content = document.getElementById('newNoteContent').value.trim();
+            const folderId = document.getElementById('newNoteFolder').value;
+
+            if (!title || !content) {
+                showMessage('Title and content are required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes`, {
+                    method: 'POST',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        folder_id: folderId ? parseInt(folderId) : null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to create note', 'error');
+                    return;
+                }
+
+                showMessage('Note created successfully!', 'success');
+                closeCreateModal();
+                await loadNotes();
+            } catch (error) {
+                console.error('Error creating note:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function viewNote(noteId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+                    headers: getAuthHeader()
+                });
+
+                if (!response.ok) {
+                    showMessage('Failed to load note', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                currentNoteId = noteId;
+                currentNoteData = data.note;
+
+                document.getElementById('noteTitle').textContent = data.note.title;
+                document.getElementById('noteMeta').textContent = 
+                    `Created: ${new Date(data.note.created_at).toLocaleString()}`;
+                
+                document.getElementById('editTitle').value = data.note.title;
+                document.getElementById('editContent').value = data.note.content;
+                document.getElementById('editFolder').value = data.note.folder_id || '';
+
+                displayShares(data.note.shares || []);
+
+                document.getElementById('listView').classList.remove('active');
+                document.getElementById('detailView').classList.add('active');
+            } catch (error) {
+                console.error('Error loading note:', error);
+                showMessage('Failed to load note', 'error');
+            }
+        }
+
+        function displayShares(shares) {
+            const shareList = document.getElementById('shareList');
+
+            if (!shares || shares.length === 0) {
+                shareList.innerHTML = '<p style="color: #999; text-align: center;">Not shared with anyone yet</p>';
+                return;
+            }
+
+            shareList.innerHTML = shares.map(share => `
+                <div class="share-item">
+                    <div class="share-info">
+                        <span>User ID: ${share.user_id}</span>
+                        <span class="share-role">Permission: ${share.permission}</span>
+                    </div>
+                    <div class="share-actions">
+                        <button class="btn-secondary" onclick="removeShare(${share.user_id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateNote() {
+            const title = document.getElementById('editTitle').value.trim();
+            const content = document.getElementById('editContent').value.trim();
+            const folderId = document.getElementById('editFolder').value;
+
+            if (!title || !content) {
+                showMessage('Title and content are required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${currentNoteId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        folder_id: folderId ? parseInt(folderId) : null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to update note', 'error');
+                    return;
+                }
+
+                showMessage('Note updated successfully!', 'success');
+                currentNoteData = data.note;
+                document.getElementById('noteTitle').textContent = data.note.title;
+            } catch (error) {
+                console.error('Error updating note:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function shareNote() {
+            const userId = document.getElementById('shareUserId').value.trim();
+            const permission = document.getElementById('sharePermission').value;
+
+            if (!userId) {
+                showMessage('User ID is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${currentNoteId}/share`, {
+                    method: 'POST',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        permission
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to share note', 'error');
+                    return;
+                }
+
+                showMessage('Note shared successfully!', 'success');
+                document.getElementById('shareUserId').value = '';
+                await viewNote(currentNoteId);
+            } catch (error) {
+                console.error('Error sharing note:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function removeShare(userId) {
+            if (!confirm('Are you sure you want to remove access for this user?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${currentNoteId}/share/${userId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to remove share', 'error');
+                    return;
+                }
+
+                showMessage('Access removed successfully!', 'success');
+                await viewNote(currentNoteId);
+            } catch (error) {
+                console.error('Error removing share:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function deleteNote() {
+            if (!confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notes/${currentNoteId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to delete note', 'error');
+                    return;
+                }
+
+                showMessage('Note deleted successfully!', 'success');
+                backToList();
+                await loadNotes();
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        function backToList() {
+            document.getElementById('listView').classList.add('active');
+            document.getElementById('detailView').classList.remove('active');
+            currentNoteId = null;
+        }
+
+        async function createFolder() {
+            const name = document.getElementById('newFolderName').value.trim();
+
+            if (!name) {
+                showMessage('Folder name is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/folders`, {
+                    method: 'POST',
+                    headers: getAuthHeader(),
+                    body: JSON.stringify({ name })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to create folder', 'error');
+                    return;
+                }
+
+                showMessage('Folder created successfully!', 'success');
+                closeCreateFolderModal();
+                await loadNotes();
+            } catch (error) {
+                console.error('Error creating folder:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        async function deleteFolder(folderID = null) {
+            if (!confirm('Are you sure you want to delete this folder?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/folders/${folderID}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(data.error || 'Failed to delete folder', 'error');
+                    return;
+                }
+
+                showMessage('Folder deleted successfully!', 'success');
+                await loadNotes();
+            } catch (error) {
+                console.error('Error deleting folder:', error);
+                showMessage('Network error', 'error');
+            }
+        }
+
+        // Load notes on page load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            loadNotes();
+        });
+    </script>
+</body>
+</html>
