@@ -64,7 +64,14 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"note": note})
+	// Include access list if requester is owner (service will enforce owner-only)
+	shares := []map[string]interface{}{}
+	accessList, err := h.service.GetNoteAccess(requesterID, noteID)
+	if err == nil {
+		shares = accessList
+	}
+
+	c.JSON(http.StatusOK, gin.H{"note": note, "shares": shares})
 }
 
 func (h *AssetHandler) CreateNote(c *gin.Context) {

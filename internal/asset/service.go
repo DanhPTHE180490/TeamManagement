@@ -19,6 +19,7 @@ type AssetService interface {
 	GetUserFolders(requesterID int64) ([]*models.Folder, error)
 	GetSharedNotes(requesterID int64) ([]*models.Note, error)
 	DeleteFolder(requesterID, folderID int64) error
+	GetNoteAccess(requesterID, noteID int64) ([]map[string]interface{}, error)
 }
 
 type assetServiceImpl struct {
@@ -245,4 +246,84 @@ func (s *assetServiceImpl) DeleteFolder(requesterID, folderID int64) error {
 	}
 
 	return s.repo.deleteFolder(folderID)
+}
+
+func permissionPriority(p string) int {
+	switch p {
+	case "owner":
+		return 3
+	case "write":
+		return 2
+	case "read":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (s *assetServiceImpl) GetNoteAccess(requesterID, noteID int64) ([]map[string]interface{}, error) {
+	note, err := s.repo.getNoteByID(noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only owner may view the full access list
+	if note.OwnerID != requesterID {
+		return nil, errors.New("access denied: only owner can view access list")
+	}
+
+	accessMap := make(map[int64]string)
+	// Owner
+	accessMap[note.OwnerID] = "owner"
+
+	// Note shares
+	noteShares, err := s.repo.getNoteShares(noteID)
+	if err == nil {
+		for _, ns := range noteShares {
+			if ns == nil {
+				continue
+			}
+			cur, ok := accessMap[ns.SharedWithUserID]
+			if !ok || permissionPriority(ns.PermissionLevel) > permissionPriority(cur) {
+				accessMap[ns.SharedWithUserID] = ns.PermissionLevel
+			}
+		}
+	}
+
+	// Folder shares
+	if note.FolderID > 0 {
+		folderShares, err := s.repo.getFolderShares(note.FolderID)
+		if err == nil {
+			for _, fs := range folderShares {
+				if fs == nil {
+					continue
+				}
+				cur, ok := accessMap[fs.SharedWithUserID]
+				if !ok || permissionPriority(fs.PermissionLevel) > permissionPriority(cur) {
+					accessMap[fs.SharedWithUserID] = fs.PermissionLevel
+				}
+			}
+		}
+	}
+
+	// Managers of owner get write access
+	managers, err := s.repo.GetManagersOfOwner(note.OwnerID)
+	if err == nil {
+		for _, m := range managers {
+			cur, ok := accessMap[m]
+			if !ok || permissionPriority("write") > permissionPriority(cur) {
+				accessMap[m] = "write"
+			}
+		}
+	}
+
+	// Build result slice
+	var res []map[string]interface{}
+	for uid, perm := range accessMap {
+		res = append(res, map[string]interface{}{
+			"user_id":    uid,
+			"permission": perm,
+		})
+	}
+	return res, nil
 }

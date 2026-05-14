@@ -25,6 +25,8 @@ type AssetRepository interface {
 	shareFolder(folderShare *models.FolderShare) error
 	removeFolderShare(folderID, userID int64) error
 	getSharedNotes(userID int64) ([]*models.Note, error)
+	getFolderShares(folderID int64) ([]*models.FolderShare, error)
+	GetManagersOfOwner(ownerID int64) ([]int64, error)
 }
 
 type assetRepositoryImpl struct {
@@ -120,6 +122,48 @@ func (r *assetRepositoryImpl) getNoteShares(noteID int64) ([]*models.NoteShare, 
 	}
 
 	return shares, rows.Err()
+}
+
+func (r *assetRepositoryImpl) getFolderShares(folderID int64) ([]*models.FolderShare, error) {
+	rows, err := r.db.Query("SELECT folder_id, shared_with_user_id, permission_level FROM folder_shares WHERE folder_id = ?", folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var shares []*models.FolderShare
+	for rows.Next() {
+		var s models.FolderShare
+		if err := rows.Scan(&s.FolderID, &s.SharedWithUserID, &s.PermissionLevel); err != nil {
+			return nil, err
+		}
+		shares = append(shares, &s)
+	}
+	return shares, rows.Err()
+}
+
+func (r *assetRepositoryImpl) GetManagersOfOwner(ownerID int64) ([]int64, error) {
+	rows, err := r.db.Query(`
+		SELECT DISTINCT req_tm.user_id
+		FROM team_members req_tm
+		JOIN team_members owner_tm ON req_tm.team_id = owner_tm.team_id
+		WHERE owner_tm.user_id = ?
+		  AND req_tm.team_role IN ('manager','main_manager')
+	`, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var managers []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		managers = append(managers, uid)
+	}
+	return managers, rows.Err()
 }
 
 func (r *assetRepositoryImpl) createFolder(folder *models.Folder) (*models.Folder, error) {

@@ -556,8 +556,8 @@
                         <div style="display: flex; gap: 10px;">
                             <input type="number" id="shareUserId" placeholder="Enter user ID" style="flex: 1;">
                             <select id="sharePermission" style="flex: 0.5;">
-                                <option value="view">View</option>
-                                <option value="edit">Edit</option>
+                                <option value="read">Read</option>
+                                <option value="write">Write</option>
                             </select>
                             <button class="btn-success" onclick="shareNote()">Share</button>
                         </div>
@@ -871,8 +871,8 @@
                     <h3>${note.title}</h3>
                     <p>${note.content}</p>
                     <div class="card-meta">
-                        <p>Permission: ${note.permission}</p>
                         <p>Created: ${new Date(note.created_at).toLocaleDateString()}</p>
+                        <p>Last Updated: ${new Date(note.updated_at).toLocaleDateString()}</p>
                     </div>
                 </div>
             `).join('');
@@ -953,12 +953,13 @@
                 document.getElementById('noteTitle').textContent = data.note.title;
                 document.getElementById('noteMeta').textContent = 
                     `Created: ${new Date(data.note.created_at).toLocaleString()}`;
-                
+                document.getElementById('noteLastUpdated').textContent = 
+                    `Last Updated: ${new Date(data.note.updated_at).toLocaleString()}`;
                 document.getElementById('editTitle').value = data.note.title;
                 document.getElementById('editContent').value = data.note.content;
                 document.getElementById('editFolder').value = data.note.folder_id || '';
 
-                displayShares(data.note.shares || []);
+                displayShares(data.shares || []);
 
                 document.getElementById('listView').classList.remove('active');
                 document.getElementById('detailView').classList.add('active');
