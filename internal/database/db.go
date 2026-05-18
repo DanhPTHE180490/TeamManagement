@@ -3,14 +3,19 @@ package database
 import (
 	"database/sql"
 	"log"
+	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql" // The blank identifier imports the driver without using its functions directly
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // InitDB opens a connection pool to MySQL
 func InitDB() *sql.DB {
-	dsn := "root:password_1234@tcp(127.0.0.1:3306)/microservices_capstone?parseTime=true"
+	dsn := os.Getenv("DB_DSN")
+	if dsn == "" {
+		dsn = os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") + "@tcp(127.0.0.1:3306)/" + os.Getenv("DB_NAME") + "?parseTime=true"
+		log.Println("Warning: DB_DSN environment variable not found. Using local fallback.")
+	}
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {

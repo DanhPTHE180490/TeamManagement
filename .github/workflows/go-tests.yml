@@ -22,5 +22,24 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          DB_USER=root
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=microservices_capstone
+          DB_HOST=127.0.0.1
+          DB_PORT=3307
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_DSN=root:${{ secrets.DB_PASSWORD }}@tcp(127.0.0.1:3307)/microservices_capstone?parseTime=true
+          EOF
+
+      - name: Start services via Docker Compose
+        run: docker compose up --wait
+
       - name: Run tests
-        run: go test ./...
+        run: go test ./... -v -p 1
+        
+      - name: Tear down Docker Compose
+        if: always()
+        run: docker compose down

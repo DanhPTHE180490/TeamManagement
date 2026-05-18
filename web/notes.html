@@ -525,6 +525,7 @@
                 <div>
                     <h2 id="noteTitle"></h2>
                     <div class="card-meta" id="noteMeta"></div>
+                    <div class="card-meta" id="noteLastUpdated"></div>
                 </div>
 
                 <div class="form-group" style="margin-top: 20px;">
@@ -947,17 +948,28 @@
                 }
 
                 const data = await response.json();
-                currentNoteId = noteId;
-                currentNoteData = data.note;
+                const note = data && data.note ? data.note : null;
 
-                document.getElementById('noteTitle').textContent = data.note.title;
-                document.getElementById('noteMeta').textContent = 
-                    `Created: ${new Date(data.note.created_at).toLocaleString()}`;
-                document.getElementById('noteLastUpdated').textContent = 
-                    `Last Updated: ${new Date(data.note.updated_at).toLocaleString()}`;
-                document.getElementById('editTitle').value = data.note.title;
-                document.getElementById('editContent').value = data.note.content;
-                document.getElementById('editFolder').value = data.note.folder_id || '';
+                if (!note || typeof note.id === 'undefined') {
+                    showMessage('Failed to load note', 'error');
+                    return;
+                }
+
+                currentNoteId = noteId;
+                currentNoteData = note;
+
+                const createdAt = note.created_at ? new Date(note.created_at).toLocaleString() : 'Unknown';
+                const updatedAt = note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Unknown';
+
+                document.getElementById('noteTitle').textContent = note.title || 'Untitled note';
+                document.getElementById('noteMeta').textContent = `Created: ${createdAt}`;
+                const noteLastUpdatedEl = document.getElementById('noteLastUpdated');
+                if (noteLastUpdatedEl) {
+                    noteLastUpdatedEl.textContent = `Last Updated: ${updatedAt}`;
+                }
+                document.getElementById('editTitle').value = note.title || '';
+                document.getElementById('editContent').value = note.content || '';
+                document.getElementById('editFolder').value = note.folder_id || '';
 
                 displayShares(data.shares || []);
 
