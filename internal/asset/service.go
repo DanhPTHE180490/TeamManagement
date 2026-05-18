@@ -1,7 +1,7 @@
 package asset
 
 import (
-	"errors"
+	apperrors "team-management/internal/errors"
 	"team-management/internal/models"
 	"time"
 )
@@ -31,7 +31,7 @@ func NewAssetService(repo AssetRepository) AssetService {
 }
 
 func (s *assetServiceImpl) GetNoteByID(requesterID, noteID int64) (*models.Note, error) {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +70,11 @@ func (s *assetServiceImpl) GetNoteByID(requesterID, noteID int64) (*models.Note,
 		return note, nil
 	}
 
-	return nil, errors.New("access denied: you do not have permission to view this note")
+	return nil, apperrors.NewForbiddenError("you do not have permission to view this note")
 }
 
 func (s *assetServiceImpl) UpdateNote(requesterID, noteID int64, title, content string, folderID *int64) (*models.Note, error) {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *assetServiceImpl) UpdateNote(requesterID, noteID int64, title, content 
 			note.FolderID = *folderID
 		}
 		note.UpdatedAt = time.Now()
-		err = s.repo.updateNote(note)
+		err = s.repo.UpdateNote(note)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func (s *assetServiceImpl) UpdateNote(requesterID, noteID int64, title, content 
 				note.FolderID = *folderID
 			}
 			note.UpdatedAt = time.Now()
-			err = s.repo.updateNote(note)
+			err = s.repo.UpdateNote(note)
 			if err != nil {
 				return nil, err
 			}
@@ -127,14 +127,14 @@ func (s *assetServiceImpl) UpdateNote(requesterID, noteID int64, title, content 
 			note.FolderID = *folderID
 		}
 		note.UpdatedAt = time.Now()
-		err = s.repo.updateNote(note)
+		err = s.repo.UpdateNote(note)
 		if err != nil {
 			return nil, err
 		}
 		return note, nil
 	}
 
-	return nil, errors.New("access denied: you do not have permission to edit this note")
+	return nil, apperrors.NewForbiddenError("you do not have permission to edit this note")
 }
 
 func (s *assetServiceImpl) CreateNote(requesterID int64, title, content string, folderID *int64) (*models.Note, error) {
@@ -147,43 +147,43 @@ func (s *assetServiceImpl) CreateNote(requesterID int64, title, content string, 
 		note.FolderID = *folderID
 	}
 
-	return s.repo.createNote(note)
+	return s.repo.CreateNote(note)
 }
 
 func (s *assetServiceImpl) GetUserNotes(requesterID int64) ([]*models.Note, error) {
-	return s.repo.getUserNotes(requesterID)
+	return s.repo.GetUserNotes(requesterID)
 }
 
 func (s *assetServiceImpl) DeleteNote(requesterID, noteID int64) error {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return err
 	}
 
 	// Only owner can delete
 	if note.OwnerID != requesterID {
-		return errors.New("access denied: only owner can delete this note")
+		return apperrors.NewForbiddenError("only owner can delete this note")
 	}
 
-	return s.repo.deleteNote(noteID)
+	return s.repo.DeleteNote(noteID)
 }
 
 func (s *assetServiceImpl) ShareNote(requesterID, noteID, sharedWithUserID int64, permission string) error {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return err
 	}
 
 	// Only owner can share
 	if note.OwnerID != requesterID {
-		return errors.New("access denied: only owner can share this note")
+		return apperrors.NewForbiddenError("only owner can share this note")
 	}
 
 	if permission != "read" && permission != "write" {
-		return errors.New("invalid permission level")
+		return apperrors.NewValidationError("permission", "invalid permission level")
 	}
 
-	return s.repo.shareNote(&models.NoteShare{
+	return s.repo.ShareNote(&models.NoteShare{
 		NoteID:           noteID,
 		SharedWithUserID: sharedWithUserID,
 		PermissionLevel:  permission,
@@ -191,31 +191,31 @@ func (s *assetServiceImpl) ShareNote(requesterID, noteID, sharedWithUserID int64
 }
 
 func (s *assetServiceImpl) RemoveNoteShare(requesterID, noteID, sharedWithUserID int64) error {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return err
 	}
 
 	// Only owner can remove share
 	if note.OwnerID != requesterID {
-		return errors.New("access denied: only owner can modify shares")
+		return apperrors.NewForbiddenError("only owner can modify shares")
 	}
 
-	return s.repo.removeNoteShare(noteID, sharedWithUserID)
+	return s.repo.RemoveNoteShare(noteID, sharedWithUserID)
 }
 
 func (s *assetServiceImpl) GetNoteShares(requesterID, noteID int64) ([]*models.NoteShare, error) {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only owner can view shares
 	if note.OwnerID != requesterID {
-		return nil, errors.New("access denied")
+		return nil, apperrors.NewForbiddenError("only owner can view shares")
 	}
 
-	return s.repo.getNoteShares(noteID)
+	return s.repo.GetNoteShares(noteID)
 }
 
 func (s *assetServiceImpl) CreateFolder(requesterID int64, name string) (*models.Folder, error) {
@@ -223,29 +223,29 @@ func (s *assetServiceImpl) CreateFolder(requesterID int64, name string) (*models
 		OwnerID: requesterID,
 		Name:    name,
 	}
-	return s.repo.createFolder(folder)
+	return s.repo.CreateFolder(folder)
 }
 
 func (s *assetServiceImpl) GetUserFolders(requesterID int64) ([]*models.Folder, error) {
-	return s.repo.getUserFolders(requesterID)
+	return s.repo.GetUserFolders(requesterID)
 }
 
 func (s *assetServiceImpl) GetSharedNotes(requesterID int64) ([]*models.Note, error) {
-	return s.repo.getSharedNotes(requesterID)
+	return s.repo.GetSharedNotes(requesterID)
 }
 
 func (s *assetServiceImpl) DeleteFolder(requesterID, folderID int64) error {
-	folder, err := s.repo.getFolderByID(folderID)
+	folder, err := s.repo.GetFolderByID(folderID)
 	if err != nil {
 		return err
 	}
 
 	// Only owner can delete
 	if folder.OwnerID != requesterID {
-		return errors.New("access denied: only owner can delete this folder")
+		return apperrors.NewForbiddenError("only owner can delete this folder")
 	}
 
-	return s.repo.deleteFolder(folderID)
+	return s.repo.DeleteFolder(folderID)
 }
 
 func permissionPriority(p string) int {
@@ -262,14 +262,14 @@ func permissionPriority(p string) int {
 }
 
 func (s *assetServiceImpl) GetNoteAccess(requesterID, noteID int64) ([]map[string]interface{}, error) {
-	note, err := s.repo.getNoteByID(noteID)
+	note, err := s.repo.GetNoteByID(noteID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only owner may view the full access list
 	if note.OwnerID != requesterID {
-		return nil, errors.New("access denied: only owner can view access list")
+		return nil, apperrors.NewForbiddenError("only owner can view access list")
 	}
 
 	accessMap := make(map[int64]string)
@@ -277,7 +277,7 @@ func (s *assetServiceImpl) GetNoteAccess(requesterID, noteID int64) ([]map[strin
 	accessMap[note.OwnerID] = "owner"
 
 	// Note shares
-	noteShares, err := s.repo.getNoteShares(noteID)
+	noteShares, err := s.repo.GetNoteShares(noteID)
 	if err == nil {
 		for _, ns := range noteShares {
 			if ns == nil {
@@ -292,7 +292,7 @@ func (s *assetServiceImpl) GetNoteAccess(requesterID, noteID int64) ([]map[strin
 
 	// Folder shares
 	if note.FolderID > 0 {
-		folderShares, err := s.repo.getFolderShares(note.FolderID)
+		folderShares, err := s.repo.GetFolderShares(note.FolderID)
 		if err == nil {
 			for _, fs := range folderShares {
 				if fs == nil {

@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	apperrors "team-management/internal/errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -56,11 +58,15 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 
 	note, err := h.service.GetNoteByID(requesterID, noteID)
 	if err != nil {
-		if err.Error() == "access denied: you do not have permission to view this note" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
+		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get note"})
 		return
 	}
 
@@ -98,6 +104,10 @@ func (h *AssetHandler) CreateNote(c *gin.Context) {
 
 	note, err := h.service.CreateNote(requesterID, req.Title, req.Content, req.FolderID)
 	if err != nil {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create note"})
 		return
 	}
@@ -152,8 +162,12 @@ func (h *AssetHandler) UpdateNote(c *gin.Context) {
 
 	note, err := h.service.UpdateNote(requesterID, noteID, req.Title, req.Content, req.FolderID)
 	if err != nil {
-		if err.Error() == "access denied: you do not have permission to edit this note" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update note"})
@@ -175,8 +189,12 @@ func (h *AssetHandler) DeleteNote(c *gin.Context) {
 
 	err = h.service.DeleteNote(requesterID, noteID)
 	if err != nil {
-		if err.Error() == "access denied: only owner can delete this note" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete note"})
@@ -207,11 +225,15 @@ func (h *AssetHandler) ShareNote(c *gin.Context) {
 
 	err = h.service.ShareNote(requesterID, noteID, req.UserID, req.Permission)
 	if err != nil {
-		if err.Error() == "access denied: only owner can share this note" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to share note"})
 		return
 	}
 
@@ -236,8 +258,12 @@ func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 
 	err = h.service.RemoveNoteShare(requesterID, noteID, userID)
 	if err != nil {
-		if err.Error() == "access denied: only owner can modify shares" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "share not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove share"})
@@ -274,6 +300,10 @@ func (h *AssetHandler) CreateFolder(c *gin.Context) {
 
 	folder, err := h.service.CreateFolder(requesterID, req.Name)
 	if err != nil {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create folder"})
 		return
 	}
@@ -318,8 +348,12 @@ func (h *AssetHandler) DeleteFolder(c *gin.Context) {
 
 	err = h.service.DeleteFolder(requesterID, folderID)
 	if err != nil {
-		if err.Error() == "access denied: only owner can delete this folder" {
+		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "folder not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete folder"})
