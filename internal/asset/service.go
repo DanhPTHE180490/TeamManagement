@@ -1,0 +1,329 @@
+package asset
+
+import (
+	apperrors "team-management/internal/errors"
+	"team-management/internal/models"
+	"time"
+)
+
+type AssetService interface {
+	GetNoteByID(requesterID, noteID int64) (*models.Note, error)
+	UpdateNote(requesterID, noteID int64, title, content string, folderID *int64) (*models.Note, error)
+	CreateNote(requesterID int64, title, content string, folderID *int64) (*models.Note, error)
+	GetUserNotes(requesterID int64) ([]*models.Note, error)
+	DeleteNote(requesterID, noteID int64) error
+	ShareNote(requesterID, noteID, sharedWithUserID int64, permission string) error
+	RemoveNoteShare(requesterID, noteID, sharedWithUserID int64) error
+	GetNoteShares(requesterID, noteID int64) ([]*models.NoteShare, error)
+	CreateFolder(requesterID int64, name string) (*models.Folder, error)
+	GetUserFolders(requesterID int64) ([]*models.Folder, error)
+	GetSharedNotes(requesterID int64) ([]*models.Note, error)
+	DeleteFolder(requesterID, folderID int64) error
+	GetNoteAccess(requesterID, noteID int64) ([]map[string]interface{}, error)
+}
+
+type assetServiceImpl struct {
+	repo AssetRepository
+}
+
+func NewAssetService(repo AssetRepository) AssetService {
+	return &assetServiceImpl{repo: repo}
+}
+
+func (s *assetServiceImpl) GetNoteByID(requesterID, noteID int64) (*models.Note, error) {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if requester is the owner of the note
+	if note.OwnerID == requesterID {
+		return note, nil
+	}
+
+	// Check folder share level
+	if note.FolderID > 0 {
+		folderShareLevel, err := s.repo.GetFolderShareLevel(note.FolderID, requesterID)
+		if err != nil {
+			return nil, err
+		}
+		if folderShareLevel == "write" || folderShareLevel == "read" {
+			return note, nil
+		}
+	}
+
+	// Check note share level
+	noteShareLevel, err := s.repo.GetNoteShareLevel(note.ID, requesterID)
+	if err != nil {
+		return nil, err
+	}
+	if noteShareLevel == "write" || noteShareLevel == "read" {
+		return note, nil
+	}
+
+	// Check if requester is a manager of the owner
+	isManager, err := s.repo.IsManagerOfOwner(requesterID, note.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	if isManager {
+		return note, nil
+	}
+
+	return nil, apperrors.NewForbiddenError("you do not have permission to view this note")
+}
+
+func (s *assetServiceImpl) UpdateNote(requesterID, noteID int64, title, content string, folderID *int64) (*models.Note, error) {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if requester is the owner of the note
+	if note.OwnerID == requesterID {
+		note.Title = title
+		note.Content = content
+		if folderID != nil {
+			note.FolderID = *folderID
+		}
+		note.UpdatedAt = time.Now()
+		err = s.repo.UpdateNote(note)
+		if err != nil {
+			return nil, err
+		}
+		return note, nil
+	}
+
+	// Check folder share level
+	if note.FolderID > 0 {
+		folderShareLevel, err := s.repo.GetFolderShareLevel(note.FolderID, requesterID)
+		if err != nil {
+			return nil, err
+		}
+		if folderShareLevel == "write" {
+			note.Title = title
+			note.Content = content
+			if folderID != nil {
+				note.FolderID = *folderID
+			}
+			note.UpdatedAt = time.Now()
+			err = s.repo.UpdateNote(note)
+			if err != nil {
+				return nil, err
+			}
+			return note, nil
+		}
+	}
+
+	// Check note share level
+	noteShareLevel, err := s.repo.GetNoteShareLevel(note.ID, requesterID)
+	if err != nil {
+		return nil, err
+	}
+	if noteShareLevel == "write" {
+		note.Title = title
+		note.Content = content
+		if folderID != nil {
+			note.FolderID = *folderID
+		}
+		note.UpdatedAt = time.Now()
+		err = s.repo.UpdateNote(note)
+		if err != nil {
+			return nil, err
+		}
+		return note, nil
+	}
+
+	return nil, apperrors.NewForbiddenError("you do not have permission to edit this note")
+}
+
+func (s *assetServiceImpl) CreateNote(requesterID int64, title, content string, folderID *int64) (*models.Note, error) {
+	note := &models.Note{
+		OwnerID: requesterID,
+		Title:   title,
+		Content: content,
+	}
+	if folderID != nil {
+		note.FolderID = *folderID
+	}
+
+	return s.repo.CreateNote(note)
+}
+
+func (s *assetServiceImpl) GetUserNotes(requesterID int64) ([]*models.Note, error) {
+	return s.repo.GetUserNotes(requesterID)
+}
+
+func (s *assetServiceImpl) DeleteNote(requesterID, noteID int64) error {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return err
+	}
+
+	// Only owner can delete
+	if note.OwnerID != requesterID {
+		return apperrors.NewForbiddenError("only owner can delete this note")
+	}
+
+	return s.repo.DeleteNote(noteID)
+}
+
+func (s *assetServiceImpl) ShareNote(requesterID, noteID, sharedWithUserID int64, permission string) error {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return err
+	}
+
+	// Only owner can share
+	if note.OwnerID != requesterID {
+		return apperrors.NewForbiddenError("only owner can share this note")
+	}
+
+	if permission != "read" && permission != "write" {
+		return apperrors.NewValidationError("permission", "invalid permission level")
+	}
+
+	return s.repo.ShareNote(&models.NoteShare{
+		NoteID:           noteID,
+		SharedWithUserID: sharedWithUserID,
+		PermissionLevel:  permission,
+	})
+}
+
+func (s *assetServiceImpl) RemoveNoteShare(requesterID, noteID, sharedWithUserID int64) error {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return err
+	}
+
+	// Only owner can remove share
+	if note.OwnerID != requesterID {
+		return apperrors.NewForbiddenError("only owner can modify shares")
+	}
+
+	return s.repo.RemoveNoteShare(noteID, sharedWithUserID)
+}
+
+func (s *assetServiceImpl) GetNoteShares(requesterID, noteID int64) ([]*models.NoteShare, error) {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only owner can view shares
+	if note.OwnerID != requesterID {
+		return nil, apperrors.NewForbiddenError("only owner can view shares")
+	}
+
+	return s.repo.GetNoteShares(noteID)
+}
+
+func (s *assetServiceImpl) CreateFolder(requesterID int64, name string) (*models.Folder, error) {
+	folder := &models.Folder{
+		OwnerID: requesterID,
+		Name:    name,
+	}
+	return s.repo.CreateFolder(folder)
+}
+
+func (s *assetServiceImpl) GetUserFolders(requesterID int64) ([]*models.Folder, error) {
+	return s.repo.GetUserFolders(requesterID)
+}
+
+func (s *assetServiceImpl) GetSharedNotes(requesterID int64) ([]*models.Note, error) {
+	return s.repo.GetSharedNotes(requesterID)
+}
+
+func (s *assetServiceImpl) DeleteFolder(requesterID, folderID int64) error {
+	folder, err := s.repo.GetFolderByID(folderID)
+	if err != nil {
+		return err
+	}
+
+	// Only owner can delete
+	if folder.OwnerID != requesterID {
+		return apperrors.NewForbiddenError("only owner can delete this folder")
+	}
+
+	return s.repo.DeleteFolder(folderID)
+}
+
+func permissionPriority(p string) int {
+	switch p {
+	case "owner":
+		return 3
+	case "write":
+		return 2
+	case "read":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (s *assetServiceImpl) GetNoteAccess(requesterID, noteID int64) ([]map[string]interface{}, error) {
+	note, err := s.repo.GetNoteByID(noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only owner may view the full access list
+	if note.OwnerID != requesterID {
+		return nil, apperrors.NewForbiddenError("only owner can view access list")
+	}
+
+	accessMap := make(map[int64]string)
+	// Owner
+	accessMap[note.OwnerID] = "owner"
+
+	// Note shares
+	noteShares, err := s.repo.GetNoteShares(noteID)
+	if err == nil {
+		for _, ns := range noteShares {
+			if ns == nil {
+				continue
+			}
+			cur, ok := accessMap[ns.SharedWithUserID]
+			if !ok || permissionPriority(ns.PermissionLevel) > permissionPriority(cur) {
+				accessMap[ns.SharedWithUserID] = ns.PermissionLevel
+			}
+		}
+	}
+
+	// Folder shares
+	if note.FolderID > 0 {
+		folderShares, err := s.repo.GetFolderShares(note.FolderID)
+		if err == nil {
+			for _, fs := range folderShares {
+				if fs == nil {
+					continue
+				}
+				cur, ok := accessMap[fs.SharedWithUserID]
+				if !ok || permissionPriority(fs.PermissionLevel) > permissionPriority(cur) {
+					accessMap[fs.SharedWithUserID] = fs.PermissionLevel
+				}
+			}
+		}
+	}
+
+	// Managers of owner get write access
+	managers, err := s.repo.GetManagersOfOwner(note.OwnerID)
+	if err == nil {
+		for _, m := range managers {
+			cur, ok := accessMap[m]
+			if !ok || permissionPriority("write") > permissionPriority(cur) {
+				accessMap[m] = "write"
+			}
+		}
+	}
+
+	// Build result slice
+	var res []map[string]interface{}
+	for uid, perm := range accessMap {
+		res = append(res, map[string]interface{}{
+			"user_id":    uid,
+			"permission": perm,
+		})
+	}
+	return res, nil
+}

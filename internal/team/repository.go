@@ -70,8 +70,8 @@ func (r *teamRepository) CreateTeam(team *models.Team, userID int64, userRole st
 
 func (r *teamRepository) GetTeamByID(id int64) (*models.Team, error) {
 	team := &models.Team{}
-	query := "SELECT id, name FROM teams WHERE id = ?"
-	err := r.db.QueryRow(query, id).Scan(&team.ID, &team.Name)
+	query := "SELECT id, name, created_at, updated_at FROM teams WHERE id = ?"
+	err := r.db.QueryRow(query, id).Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("Team not found with ID: %d", id)

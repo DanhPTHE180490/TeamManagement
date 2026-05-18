@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+ INSERT INTO users (username, email, password_hash, system_role)
+ SELECT 'Admin', 'admin@example.com', '$2a$10$Ylqycc.m0K2oJkvdomU5f.6Yb8.sco0oQWF8r36J76ideDPS.bCGO', 'manager'
+ WHERE NOT EXISTS (
+     SELECT 1
+     FROM users
+     WHERE email = 'admin@example.com'
+ );
+
 -- ==========================================
 -- 2. TEAMS TABLE
 -- ==========================================
@@ -47,7 +55,58 @@ CREATE TABLE IF NOT EXISTS team_members (
 );
 
 -- ==========================================
--- 4. INDEXES (For Query Optimization)
+-- 4. FOLDERS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS folders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    owner_id BIGINT NOT NULL, -- FK to users
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 5. NOTES TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS notes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    folder_id BIGINT NOT NULL, -- FK to folders
+    owner_id BIGINT NOT NULL,  -- FK to users
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 6. FOLDER_SHARES TABLE (Junction table for sharing folders with users)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS folder_shares (
+    folder_id BIGINT NOT NULL,
+    shared_with_user_id BIGINT NOT NULL,
+    permission_level ENUM('read', 'write') NOT NULL,
+    PRIMARY KEY (folder_id, shared_with_user_id),
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 7. NOTE_SHARES TABLE (Junction table for sharing notes with users)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS note_shares (
+    note_id BIGINT NOT NULL,
+    shared_with_user_id BIGINT NOT NULL,
+    permission_level ENUM('read', 'write') NOT NULL,
+    PRIMARY KEY (note_id, shared_with_user_id),
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 8. INDEXES (For Query Optimization)
 -- ==========================================
 -- Speeds up login checks
 CREATE INDEX idx_users_email ON users(email);

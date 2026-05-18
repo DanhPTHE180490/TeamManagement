@@ -5,10 +5,10 @@
 *   **Why it fits the project:** For a 3-stage iterative project, I need a framework that lets I start small and scale up. Gin’s middleware support makes it incredibly easy to snap in the required "Authentication & Authorization" layer seamlessly across all routes.
 
 ### 2. The Database: MySQL
-My instinct to use MySQL is perfectly aligned with the project requirements. The key here is to lean into the data domain.
+My choice is to use MySQL as it perfectly aligns with the project requirements. The key here is to lean into the data domain.
 
-*   **The Justification:** The system manages "Users, Teams, and Digital Assets" with "granular access control." This data is inherently highly relational. Users belong to Teams. Folders belong to Users. Notes belong to Folders. A relational database with strict ACID compliance guarantees that these relationships remain intact. If I used a NoSQL database (like MongoDB), I would risk data anomalies when, for example, a Manager is deleted but their sub-resources are left orphaned. 
-*   **The Trade-off:** Relational databases like MySQL are generally harder to scale horizontally across multiple servers compared to NoSQL databases. If the system were to suddenly ingest millions of unstructured "Notes" per second, a document store might handle the write-load better.
+*   **The Justification:** The system manages "Users, Teams, and Digital Assets" with "granular access control." This data is inherently highly relational. Users belong to Teams, Folders belong to Users, Notes belong to Folders. A relational database with strict ACID compliance guarantees that these relationships remain intact. If I used a NoSQL database (like MongoDB), I would risk data anomalies when, for example, a Manager is deleted but their sub-resources are left orphaned. 
+*   **The Trade-off:** Relational databases like MySQL are generally harder to scale horizontally across multiple servers compared to NoSQL databases. If the system were to suddenly ingest millions of unstructured "Notes" per second, a document store might handle the write-load better, which doesn't really apply to a localhost project.
 *   **Why it fits the project:** The immediate priority is structural integrity and complex querying (e.g., "Find all assets in Folder X that belong to Team Y where User Z has Manager access"). SQL is purpose-built for exactly this type of relational algebra.
 
 ### 3. The API Protocol: REST
