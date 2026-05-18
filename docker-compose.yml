@@ -4,7 +4,7 @@ services:
   # 1. The Database Service
   db:
     image: mysql:8.0
-    container_name: ${DB_NAME}
+    container_name: team_management_db
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}

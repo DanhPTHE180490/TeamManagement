@@ -7,11 +7,8 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT_DIR"
 
-echo "Starting database via docker compose..."
-docker compose up -d db
-
-echo "Waiting for DB to become available..."
-sleep 8
+echo "Starting database via docker compose and waiting for it to become healthy..."
+docker compose up -d --wait db
 
 echo "Running integration tests..."
 go test ./internal/... -v

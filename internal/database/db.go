@@ -13,7 +13,7 @@ import (
 func InitDB() *sql.DB {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
-		dsn = "root:" + os.Getenv("DB_PASSWORD") + "@tcp(127.0.0.1:3306)/" + os.Getenv("DB_NAME") + "?parseTime=true"
+		dsn = os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") + "@tcp(127.0.0.1:3306)/" + os.Getenv("DB_NAME") + "?parseTime=true"
 		log.Println("Warning: DB_DSN environment variable not found. Using local fallback.")
 	}
 

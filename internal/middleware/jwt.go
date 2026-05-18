@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -12,6 +13,12 @@ import (
 
 // This must match the exact secret used in internal/auth/service.go
 var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+
+func init() {
+	if len(jwtSecret) == 0 {
+		log.Fatal("JWT_SECRET environment variable must be set and non-empty")
+	}
+}
 
 // RequireAuth is the middleware that checks for a valid JWT
 func RequireAuth() gin.HandlerFunc {
