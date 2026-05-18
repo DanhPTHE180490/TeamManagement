@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,7 @@ import (
 )
 
 // This must match the exact secret used in internal/auth/service.go
-var jwtSecret = []byte("super-secret-capstone-key")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 // RequireAuth is the middleware that checks for a valid JWT
 func RequireAuth() gin.HandlerFunc {

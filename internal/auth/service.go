@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"team-management/internal/errors"
@@ -15,7 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("super-secret-capstone-key")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 var maxBulkImportRows = 1000
 
