@@ -22,5 +22,32 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Create .env file
+        run: |
+          cat << EOF > .env
+          DB_USER=root
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=microservices_capstone
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_DSN=root:${{ secrets.DB_PASSWORD }}@tcp(127.0.0.1:3306)/microservices_capstone?parseTime=true
+          EOF
+
+      - name: Start services via Docker Compose
+        run: docker compose up -d
+
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL database..."
+          while ! mysqladmin ping -h 127.0.0.1 --silent; do
+            sleep 2
+          done
+          echo "MySQL is up and running!"
+
       - name: Run tests
         run: go test ./...
+        
+      - name: Tear down Docker Compose
+        if: always()
+        run: docker compose down
