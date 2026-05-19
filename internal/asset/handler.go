@@ -56,7 +56,7 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 	}
 	requesterID := int64(requesterCtx.(float64))
 
-	note, err := h.service.GetNoteByID(requesterID, noteID)
+	note, err := h.service.GetNoteByID(c.Request.Context(), requesterID, noteID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -72,7 +72,7 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 
 	// Include access list if requester is owner (service will enforce owner-only)
 	shares := []map[string]interface{}{}
-	accessList, err := h.service.GetNoteAccess(requesterID, noteID)
+	accessList, err := h.service.GetNoteAccess(c.Request.Context(), requesterID, noteID)
 	if err == nil {
 		shares = accessList
 	}
@@ -102,7 +102,7 @@ func (h *AssetHandler) CreateNote(c *gin.Context) {
 	}
 	requesterID := int64(requesterCtx.(float64))
 
-	note, err := h.service.CreateNote(requesterID, req.Title, req.Content, req.FolderID)
+	note, err := h.service.CreateNote(c.Request.Context(), requesterID, req.Title, req.Content, req.FolderID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -131,7 +131,7 @@ func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 		return
 	}
 
-	notes, err := h.service.GetUserNotes(requesterID)
+	notes, err := h.service.GetUserNotes(c.Request.Context(), requesterID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch notes"})
 		return
@@ -160,7 +160,7 @@ func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	note, err := h.service.UpdateNote(requesterID, noteID, req.Title, req.Content, req.FolderID)
+	note, err := h.service.UpdateNote(c.Request.Context(), requesterID, noteID, req.Title, req.Content, req.FolderID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -187,7 +187,7 @@ func (h *AssetHandler) DeleteNote(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	err = h.service.DeleteNote(requesterID, noteID)
+	err = h.service.DeleteNote(c.Request.Context(), requesterID, noteID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -223,7 +223,7 @@ func (h *AssetHandler) ShareNote(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	err = h.service.ShareNote(requesterID, noteID, req.UserID, req.Permission)
+	err = h.service.ShareNote(c.Request.Context(), requesterID, noteID, req.UserID, req.Permission)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -256,7 +256,7 @@ func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	err = h.service.RemoveNoteShare(requesterID, noteID, userID)
+	err = h.service.RemoveNoteShare(c.Request.Context(), requesterID, noteID, userID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -277,7 +277,7 @@ func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	notes, err := h.service.GetSharedNotes(requesterID)
+	notes, err := h.service.GetSharedNotes(c.Request.Context(), requesterID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch shared notes"})
 		return
@@ -298,7 +298,7 @@ func (h *AssetHandler) CreateFolder(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	folder, err := h.service.CreateFolder(requesterID, req.Name)
+	folder, err := h.service.CreateFolder(c.Request.Context(), requesterID, req.Name)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -327,7 +327,7 @@ func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 		return
 	}
 
-	folders, err := h.service.GetUserFolders(requesterID)
+	folders, err := h.service.GetUserFolders(c.Request.Context(), requesterID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch folders"})
 		return
@@ -346,7 +346,7 @@ func (h *AssetHandler) DeleteFolder(c *gin.Context) {
 	requesterCtx, _ := c.Get("userID")
 	requesterID := int64(requesterCtx.(float64))
 
-	err = h.service.DeleteFolder(requesterID, folderID)
+	err = h.service.DeleteFolder(c.Request.Context(), requesterID, folderID)
 	if err != nil {
 		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})

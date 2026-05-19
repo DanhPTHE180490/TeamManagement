@@ -2,6 +2,7 @@ package team
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,14 +15,14 @@ import (
 )
 
 type mockTeamService struct {
-	createTeamFn       func(string, int64, string) (*models.Team, error)
-	getTeamByIDFn      func(int64) (*models.Team, error)
-	getTeamsByUserIDFn func(int64) ([]*models.Team, error)
-	updateTeamFn       func(int64, string, int64) (*models.Team, error)
-	deleteTeamFn       func(int64, int64) error
-	addMemberFn        func(int64, int64, int64) error
-	removeMemberFn     func(int64, int64, int64) error
-	updateMemberRoleFn func(int64, int64, string, int64) error
+	createTeamFn       func(context.Context, string, int64, string) (*models.Team, error)
+	getTeamByIDFn      func(context.Context, int64) (*models.Team, error)
+	getTeamsByUserIDFn func(context.Context, int64) ([]*models.Team, error)
+	updateTeamFn       func(context.Context, int64, string, int64) (*models.Team, error)
+	deleteTeamFn       func(context.Context, int64, int64) error
+	addMemberFn        func(context.Context, int64, int64, int64) error
+	removeMemberFn     func(context.Context, int64, int64, int64) error
+	updateMemberRoleFn func(context.Context, int64, int64, string, int64) error
 
 	createTeamCalls       int
 	getTeamByIDCalls      int
@@ -52,84 +53,84 @@ type mockTeamService struct {
 	lastUpdateRoleRequester int64
 }
 
-func (m *mockTeamService) CreateTeam(name string, userID int64, userRole string) (*models.Team, error) {
+func (m *mockTeamService) CreateTeam(_ context.Context, name string, userID int64, userRole string) (*models.Team, error) {
 	m.createTeamCalls++
 	m.lastCreateTeamName = name
 	m.lastCreateTeamUserID = userID
 	m.lastCreateTeamRole = userRole
 	if m.createTeamFn != nil {
-		return m.createTeamFn(name, userID, userRole)
+		return m.createTeamFn(context.Background(), name, userID, userRole)
 	}
 	return &models.Team{ID: 1, Name: name}, nil
 }
 
-func (m *mockTeamService) GetTeamByID(id int64) (*models.Team, error) {
+func (m *mockTeamService) GetTeamByID(_ context.Context, id int64) (*models.Team, error) {
 	m.getTeamByIDCalls++
 	if m.getTeamByIDFn != nil {
-		return m.getTeamByIDFn(id)
+		return m.getTeamByIDFn(context.Background(), id)
 	}
 	return &models.Team{ID: id, Name: "team"}, nil
 }
 
-func (m *mockTeamService) GetTeamsByUserID(userID int64) ([]*models.Team, error) {
+func (m *mockTeamService) GetTeamsByUserID(_ context.Context, userID int64) ([]*models.Team, error) {
 	m.getTeamsByUserIDCalls++
 	if m.getTeamsByUserIDFn != nil {
-		return m.getTeamsByUserIDFn(userID)
+		return m.getTeamsByUserIDFn(context.Background(), userID)
 	}
 	return []*models.Team{{ID: 1, Name: "team"}}, nil
 }
 
-func (m *mockTeamService) UpdateTeam(id int64, name string, requesterID int64) (*models.Team, error) {
+func (m *mockTeamService) UpdateTeam(_ context.Context, id int64, name string, requesterID int64) (*models.Team, error) {
 	m.updateTeamCalls++
 	m.lastUpdateTeamID = id
 	m.lastUpdateTeamName = name
 	m.lastUpdateTeamRequester = requesterID
 	if m.updateTeamFn != nil {
-		return m.updateTeamFn(id, name, requesterID)
+		return m.updateTeamFn(context.Background(), id, name, requesterID)
 	}
 	return &models.Team{ID: id, Name: name}, nil
 }
 
-func (m *mockTeamService) DeleteTeam(id int64, requesterID int64) error {
+func (m *mockTeamService) DeleteTeam(_ context.Context, id int64, requesterID int64) error {
 	m.deleteTeamCalls++
 	m.lastDeleteTeamID = id
 	m.lastDeleteTeamRequester = requesterID
 	if m.deleteTeamFn != nil {
-		return m.deleteTeamFn(id, requesterID)
+		return m.deleteTeamFn(context.Background(), id, requesterID)
 	}
 	return nil
 }
 
-func (m *mockTeamService) AddMemberToTeam(teamID int64, targetID int64, requesterID int64) error {
+func (m *mockTeamService) AddMemberToTeam(_ context.Context, teamID int64, targetID int64, requesterID int64) error {
 	m.addMemberCalls++
 	m.lastAddTeamID = teamID
 	m.lastAddTargetID = targetID
 	m.lastAddRequesterID = requesterID
 	if m.addMemberFn != nil {
-		return m.addMemberFn(teamID, targetID, requesterID)
+		return m.addMemberFn(context.Background(), teamID, targetID, requesterID)
 	}
 	return nil
 }
 
-func (m *mockTeamService) RemoveMemberFromTeam(teamID int64, targetID int64, requesterID int64) error {
+func (m *mockTeamService) RemoveMemberFromTeam(_ context.Context, teamID int64, targetID int64, requesterID int64) error {
 	m.removeMemberCalls++
 	m.lastRemoveTeamID = teamID
 	m.lastRemoveTargetID = targetID
 	m.lastRemoveRequesterID = requesterID
 	if m.removeMemberFn != nil {
-		return m.removeMemberFn(teamID, targetID, requesterID)
+		return m.removeMemberFn(context.Background(), teamID, targetID, requesterID)
 	}
 	return nil
 }
 
-func (m *mockTeamService) UpdateMemberRole(teamID int64, targetID int64, newRole string, requesterID int64) error {
+func (m *mockTeamService) UpdateMemberRole(_ context.Context, teamID int64, targetID int64, newRole string, requesterID int64) error {
 	m.updateMemberRoleCalls++
 	m.lastUpdateRoleTeamID = teamID
 	m.lastUpdateRoleTargetID = targetID
 	m.lastUpdateRoleName = newRole
 	m.lastUpdateRoleRequester = requesterID
 	if m.updateMemberRoleFn != nil {
-		return m.updateMemberRoleFn(teamID, targetID, newRole, requesterID)
+		return m.updateMemberRoleFn(context.Background(), teamID, targetID, newRole, requesterID)
 	}
 	return nil
 }
@@ -216,7 +217,7 @@ func TestTeamHandler_CreateTeam(t *testing.T) {
 }
 
 func TestTeamHandler_GetTeamByID(t *testing.T) {
-	service := &mockTeamService{getTeamByIDFn: func(id int64) (*models.Team, error) {
+	service := &mockTeamService{getTeamByIDFn: func(_ context.Context, id int64) (*models.Team, error) {
 		if id == 99 {
 			return nil, customErrors.NewNotFoundError("team")
 		}
@@ -272,7 +273,7 @@ func TestTeamHandler_UpdateMemberRole_UsesCorrectServiceMethod(t *testing.T) {
 }
 
 func TestTeamHandler_AddMemberToTeam_Conflict(t *testing.T) {
-	service := &mockTeamService{addMemberFn: func(int64, int64, int64) error {
+	service := &mockTeamService{addMemberFn: func(_ context.Context, _ int64, _ int64, _ int64) error {
 		return customErrors.NewConflictError("user is already a member of this team", errors.New("duplicate"))
 	}}
 	router := newTeamRouterWithContext(service, float64(1), "manager")

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	stdErrors "errors"
 	"io"
 	"mime/multipart"
@@ -29,17 +30,17 @@ type mockAuthService struct {
 	bulkInput     string
 }
 
-func (m *mockAuthService) Register(username, email, password, role string) (*models.User, error) {
+func (m *mockAuthService) Register(_ context.Context, username, email, password, role string) (*models.User, error) {
 	m.registerInput = []string{username, email, password, role}
 	return m.registerUser, m.registerErr
 }
 
-func (m *mockAuthService) Login(email, password string) (string, error) {
+func (m *mockAuthService) Login(_ context.Context, email, password string) (string, error) {
 	m.loginInput = []string{email, password}
 	return m.loginToken, m.loginErr
 }
 
-func (m *mockAuthService) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error) {
+func (m *mockAuthService) BulkImportUsersFromCSV(_ context.Context, reader io.Reader) (*BulkImportSummary, error) {
 	m.bulkCalled = true
 	data, _ := io.ReadAll(reader)
 	m.bulkInput = string(data)

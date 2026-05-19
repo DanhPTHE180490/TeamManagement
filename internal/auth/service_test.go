@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -14,25 +15,25 @@ import (
 )
 
 type mockAuthRepo struct {
-	createUserFn     func(*models.User) error
-	getUserByEmailFn func(string) (*models.User, error)
+	createUserFn     func(context.Context, *models.User) error
+	getUserByEmailFn func(context.Context, string) (*models.User, error)
 	createdUsers     []*models.User
 	lookedUpEmails   []string
 }
 
-func (m *mockAuthRepo) CreateUser(user *models.User) error {
+func (m *mockAuthRepo) CreateUser(ctx context.Context, user *models.User) error {
 	m.createdUsers = append(m.createdUsers, user)
 	if m.createUserFn != nil {
-		return m.createUserFn(user)
+		return m.createUserFn(ctx, user)
 	}
 	user.ID = len(m.createdUsers)
 	return nil
 }
 
-func (m *mockAuthRepo) GetUserByEmail(email string) (*models.User, error) {
+func (m *mockAuthRepo) GetUserByEmail(_ context.Context, email string) (*models.User, error) {
 	m.lookedUpEmails = append(m.lookedUpEmails, email)
 	if m.getUserByEmailFn != nil {
-		return m.getUserByEmailFn(email)
+		return m.getUserByEmailFn(context.Background(), email)
 	}
 	return nil, customErrors.NewNotFoundError("user")
 }
@@ -73,7 +74,7 @@ func TestAuthService_Register(t *testing.T) {
 			password: "password123",
 			role:     "member",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.createUserFn = func(*models.User) error {
+				repo.createUserFn = func(context.Context, *models.User) error {
 					return customErrors.NewDuplicateError("email", errors.New("duplicate key"))
 				}
 			},
@@ -99,7 +100,7 @@ func TestAuthService_Register(t *testing.T) {
 			}
 			service := NewAuthService(repo)
 
-			user, err := service.Register(tc.username, tc.email, tc.password, tc.role)
+			user, err := service.Register(context.Background(), tc.username, tc.email, tc.password, tc.role)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -158,7 +159,7 @@ func TestAuthService_Login(t *testing.T) {
 			email:    "alice@example.com",
 			password: "password123",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.getUserByEmailFn = func(string) (*models.User, error) {
+				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
 					return baseUser, nil
 				}
 			},
@@ -168,7 +169,7 @@ func TestAuthService_Login(t *testing.T) {
 			email:    "alice@example.com",
 			password: "wrong-password",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.getUserByEmailFn = func(string) (*models.User, error) {
+				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
 					return baseUser, nil
 				}
 			},
@@ -180,7 +181,7 @@ func TestAuthService_Login(t *testing.T) {
 			email:    "missing@example.com",
 			password: "password123",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.getUserByEmailFn = func(string) (*models.User, error) {
+				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
 					return nil, customErrors.NewNotFoundError("user")
 				}
 			},
@@ -192,7 +193,7 @@ func TestAuthService_Login(t *testing.T) {
 			email:    "alice@example.com",
 			password: "password123",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.getUserByEmailFn = func(string) (*models.User, error) {
+				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
 					return nil, customErrors.NewInternalError("db unavailable", errors.New("boom"))
 				}
 			},
@@ -209,7 +210,7 @@ func TestAuthService_Login(t *testing.T) {
 			}
 			service := NewAuthService(repo)
 
-			token, err := service.Login(tc.email, tc.password)
+			token, err := service.Login(context.Background(), tc.email, tc.password)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -254,7 +255,7 @@ func TestAuthService_BulkImportUsersFromCSV(t *testing.T) {
 	repo := &mockAuthRepo{}
 	service := NewAuthService(repo)
 
-	summary, err := service.BulkImportUsersFromCSV(strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbad-row-only\n"))
+	summary, err := service.BulkImportUsersFromCSV(context.Background(), strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbad-row-only\n"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -295,7 +296,7 @@ func TestAuthService_BulkImportUsersFromCSV_RespectsRowLimit(t *testing.T) {
 	repo := &mockAuthRepo{}
 	service := NewAuthService(repo)
 
-	summary, err := service.BulkImportUsersFromCSV(strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbob,bob@example.com,password123,member\n"))
+	summary, err := service.BulkImportUsersFromCSV(context.Background(), strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbob,bob@example.com,password123,member\n"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

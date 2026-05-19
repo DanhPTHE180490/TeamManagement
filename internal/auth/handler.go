@@ -51,7 +51,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.Register(req.Username, req.Email, req.Password, req.Role)
+	ctx := c.Request.Context()
+
+	user, err := h.service.Register(ctx, req.Username, req.Email, req.Password, req.Role)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeDuplicate) {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
@@ -84,7 +86,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Call the Service Layer to verify and get the JWT
-	token, err := h.service.Login(req.Email, req.Password)
+	token, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) || customErrors.IsErrorType(err, customErrors.ErrTypeUnauthorized) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
@@ -133,7 +135,7 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 	}
 	defer file.Close()
 
-	summary, err := h.service.BulkImportUsersFromCSV(file)
+	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "processing failed: " + err.Error()})
 		return

@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"strings"
@@ -9,16 +10,16 @@ import (
 )
 
 type TeamRepository interface {
-	CreateTeam(team *models.Team, userID int64, userRole string) (error, int64)
-	GetTeamByID(id int64) (*models.Team, error)
-	GetTeamsByUserID(userID int64) ([]*models.Team, error)
-	UpdateTeam(team *models.Team) error
-	DeleteTeam(id int64) error
-	UserExists(userID int64) (bool, error)
-	GetTeamRole(teamID int64, userID int64) (string, error)
-	AddMember(teamID int64, userID int64, role string) error
-	RemoveMember(teamID int64, userID int64) error
-	UpdateMemberRole(teamID int64, userID int64, newRole string) error
+	CreateTeam(ctx context.Context, team *models.Team, userID int64, userRole string) (error, int64)
+	GetTeamByID(ctx context.Context, id int64) (*models.Team, error)
+	GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error)
+	UpdateTeam(ctx context.Context, team *models.Team) error
+	DeleteTeam(ctx context.Context, id int64) error
+	UserExists(ctx context.Context, userID int64) (bool, error)
+	GetTeamRole(ctx context.Context, teamID int64, userID int64) (string, error)
+	AddMember(ctx context.Context, teamID int64, userID int64, role string) error
+	RemoveMember(ctx context.Context, teamID int64, userID int64) error
+	UpdateMemberRole(ctx context.Context, teamID int64, userID int64, newRole string) error
 }
 
 type teamRepository struct {
@@ -29,15 +30,15 @@ func NewTeamRepository(db *sql.DB) TeamRepository {
 	return &teamRepository{db: db}
 }
 
-func (r *teamRepository) CreateTeam(team *models.Team, userID int64, userRole string) (error, int64) {
-	tx, err := r.db.Begin()
+func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, userID int64, userRole string) (error, int64) {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("Failed to start transaction for team creation: %v", err)
 		return errors.NewInternalError("failed to start database transaction", err), 0
 	}
 
 	teamQuery := "INSERT INTO teams (name) VALUES (?)"
-	result, err := tx.Exec(teamQuery, team.Name)
+	result, err := tx.ExecContext(ctx, teamQuery, team.Name)
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Failed to insert team: %v", err)
@@ -52,7 +53,7 @@ func (r *teamRepository) CreateTeam(team *models.Team, userID int64, userRole st
 	}
 
 	memberQuery := "INSERT INTO team_members (team_id, user_id, team_role) VALUES (?, ?, 'main_manager')"
-	_, err = tx.Exec(memberQuery, teamID, userID)
+	_, err = tx.ExecContext(ctx, memberQuery, teamID, userID)
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Failed to add main_manager to team %d: %v", teamID, err)
@@ -68,10 +69,10 @@ func (r *teamRepository) CreateTeam(team *models.Team, userID int64, userRole st
 	return nil, teamID
 }
 
-func (r *teamRepository) GetTeamByID(id int64) (*models.Team, error) {
+func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Team, error) {
 	team := &models.Team{}
 	query := "SELECT id, name, created_at, updated_at FROM teams WHERE id = ?"
-	err := r.db.QueryRow(query, id).Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("Team not found with ID: %d", id)
@@ -86,7 +87,7 @@ func (r *teamRepository) GetTeamByID(id int64) (*models.Team, error) {
 		FROM team_members
 		WHERE team_id = ?
 		ORDER BY joined_at ASC`
-	membersRows, err := r.db.Query(membersQuery, id)
+	membersRows, err := r.db.QueryContext(ctx, membersQuery, id)
 	if err != nil {
 		log.Printf("Database error retrieving members for team %d: %v", id, err)
 		return nil, errors.NewInternalError("failed to retrieve team members", err)
@@ -111,13 +112,13 @@ func (r *teamRepository) GetTeamByID(id int64) (*models.Team, error) {
 	return team, nil
 }
 
-func (r *teamRepository) GetTeamsByUserID(userID int64) ([]*models.Team, error) {
+func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error) {
 	query := `
 		SELECT t.id, t.name, t.created_at, t.updated_at
 		FROM teams t
 		JOIN team_members tm ON t.id = tm.team_id
 		WHERE tm.user_id = ?`
-	rows, err := r.db.Query(query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		log.Printf("Database error retrieving teams for user %d: %v", userID, err)
 		return nil, errors.NewInternalError("failed to retrieve teams", err)
@@ -142,9 +143,9 @@ func (r *teamRepository) GetTeamsByUserID(userID int64) ([]*models.Team, error) 
 	return teams, nil
 }
 
-func (r *teamRepository) UpdateTeam(team *models.Team) error {
+func (r *teamRepository) UpdateTeam(ctx context.Context, team *models.Team) error {
 	query := "UPDATE teams SET name = ? WHERE id = ?"
-	result, err := r.db.Exec(query, team.Name, team.ID)
+	result, err := r.db.ExecContext(ctx, query, team.Name, team.ID)
 	if err != nil {
 		log.Printf("Database error updating team %d: %v", team.ID, err)
 		return errors.NewInternalError("failed to update team", err)
@@ -164,9 +165,9 @@ func (r *teamRepository) UpdateTeam(team *models.Team) error {
 	return nil
 }
 
-func (r *teamRepository) DeleteTeam(id int64) error {
+func (r *teamRepository) DeleteTeam(ctx context.Context, id int64) error {
 	query := "DELETE FROM teams WHERE id = ?"
-	result, err := r.db.Exec(query, id)
+	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		log.Printf("Database error deleting team %d: %v", id, err)
 		return errors.NewInternalError("failed to delete team", err)
@@ -186,10 +187,10 @@ func (r *teamRepository) DeleteTeam(id int64) error {
 	return nil
 }
 
-func (r *teamRepository) UserExists(userID int64) (bool, error) {
+func (r *teamRepository) UserExists(ctx context.Context, userID int64) (bool, error) {
 	var exists int
 	query := "SELECT 1 FROM users WHERE id = ?"
-	err := r.db.QueryRow(query, userID).Scan(&exists)
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&exists)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("User not found with ID: %d", userID)
@@ -202,10 +203,10 @@ func (r *teamRepository) UserExists(userID int64) (bool, error) {
 	return true, nil
 }
 
-func (r *teamRepository) GetTeamRole(teamID int64, userID int64) (string, error) {
+func (r *teamRepository) GetTeamRole(ctx context.Context, teamID int64, userID int64) (string, error) {
 	var role string
 	query := "SELECT team_role FROM team_members WHERE team_id = ? AND user_id = ?"
-	err := r.db.QueryRow(query, teamID, userID).Scan(&role)
+	err := r.db.QueryRowContext(ctx, query, teamID, userID).Scan(&role)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("User %d is not a member of team %d", userID, teamID)
@@ -217,9 +218,9 @@ func (r *teamRepository) GetTeamRole(teamID int64, userID int64) (string, error)
 	return role, nil
 }
 
-func (r *teamRepository) AddMember(teamID int64, userID int64, role string) error {
+func (r *teamRepository) AddMember(ctx context.Context, teamID int64, userID int64, role string) error {
 	query := "INSERT INTO team_members (team_id, user_id, team_role) VALUES (?, ?, ?)"
-	_, err := r.db.Exec(query, teamID, userID, role)
+	_, err := r.db.ExecContext(ctx, query, teamID, userID, role)
 	if err != nil {
 		// Handle duplicate key error (user already a member)
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
@@ -232,9 +233,9 @@ func (r *teamRepository) AddMember(teamID int64, userID int64, role string) erro
 	return nil
 }
 
-func (r *teamRepository) RemoveMember(teamID int64, userID int64) error {
+func (r *teamRepository) RemoveMember(ctx context.Context, teamID int64, userID int64) error {
 	query := "DELETE FROM team_members WHERE team_id = ? AND user_id = ?"
-	result, err := r.db.Exec(query, teamID, userID)
+	result, err := r.db.ExecContext(ctx, query, teamID, userID)
 	if err != nil {
 		log.Printf("Database error removing user %d from team %d: %v", userID, teamID, err)
 		return errors.NewInternalError("failed to remove member from team", err)
@@ -254,9 +255,9 @@ func (r *teamRepository) RemoveMember(teamID int64, userID int64) error {
 	return nil
 }
 
-func (r *teamRepository) UpdateMemberRole(teamID int64, userID int64, newRole string) error {
+func (r *teamRepository) UpdateMemberRole(ctx context.Context, teamID int64, userID int64, newRole string) error {
 	query := "UPDATE team_members SET team_role = ? WHERE team_id = ? AND user_id = ?"
-	result, err := r.db.Exec(query, newRole, teamID, userID)
+	result, err := r.db.ExecContext(ctx, query, newRole, teamID, userID)
 	if err != nil {
 		log.Printf("Database error updating role for user %d in team %d: %v", userID, teamID, err)
 		return errors.NewInternalError("failed to update member role", err)

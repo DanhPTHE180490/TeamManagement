@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"strings"
@@ -9,8 +10,8 @@ import (
 )
 
 type AuthRepository interface {
-	CreateUser(user *models.User) error
-	GetUserByEmail(email string) (*models.User, error)
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
 type authRepositoryImpl struct {
@@ -23,11 +24,11 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 }
 
 // CreateUser executes the INSERT statement
-func (r *authRepositoryImpl) CreateUser(user *models.User) error {
+func (r *authRepositoryImpl) CreateUser(ctx context.Context, user *models.User) error {
 	query := `INSERT INTO users (username, email, password_hash, system_role) 
               VALUES (?, ?, ?, ?)`
 
-	result, err := r.db.Exec(query, user.Username, user.Email, user.PasswordHash, user.SystemRole)
+	result, err := r.db.ExecContext(ctx, query, user.Username, user.Email, user.PasswordHash, user.SystemRole)
 	if err != nil {
 		// Handle duplicate key error
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
@@ -49,12 +50,12 @@ func (r *authRepositoryImpl) CreateUser(user *models.User) error {
 }
 
 // GetUserByEmail executes the SELECT statement
-func (r *authRepositoryImpl) GetUserByEmail(email string) (*models.User, error) {
+func (r *authRepositoryImpl) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	query := `SELECT id, username, email, password_hash, system_role, created_at, updated_at 
           FROM users WHERE email = ?`
 
 	user := &models.User{}
-	err := r.db.QueryRow(query, email).Scan(
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,

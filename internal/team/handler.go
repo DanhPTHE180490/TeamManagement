@@ -87,7 +87,7 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 	uid := int64(floatID)
 	role := userRole.(string)
 
-	team, err := h.service.CreateTeam(req.Name, uid, role)
+	team, err := h.service.CreateTeam(c.Request.Context(), req.Name, uid, role)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -115,7 +115,7 @@ func (h *TeamHandler) GetTeamByID(c *gin.Context) {
 		return
 	}
 
-	team, err := h.service.GetTeamByID(teamID)
+	team, err := h.service.GetTeamByID(c.Request.Context(), teamID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
@@ -141,7 +141,7 @@ func (h *TeamHandler) GetTeamsByUserID(c *gin.Context) {
 		return
 	}
 
-	teams, err := h.service.GetTeamsByUserID(userID)
+	teams, err := h.service.GetTeamsByUserID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": GetTeamsError})
 		return
@@ -180,7 +180,7 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 	}
 	requesterID := int64(floatID)
 
-	team, err := h.service.UpdateTeam(teamID, req.Name, requesterID)
+	team, err := h.service.UpdateTeam(c.Request.Context(), teamID, req.Name, requesterID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
@@ -225,7 +225,7 @@ func (h *TeamHandler) DeleteTeam(c *gin.Context) {
 	}
 	requesterID := int64(floatID)
 
-	err = h.service.DeleteTeam(teamID, requesterID)
+	err = h.service.DeleteTeam(c.Request.Context(), teamID, requesterID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
@@ -272,7 +272,7 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 	}
 	requesterID := int64(floatID)
 
-	err = h.service.AddMemberToTeam(teamID, req.UserID, requesterID)
+	err = h.service.AddMemberToTeam(c.Request.Context(), teamID, req.UserID, requesterID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeConflict) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
@@ -324,7 +324,7 @@ func (h *TeamHandler) RemoveMemberFromTeam(c *gin.Context) {
 	}
 	requesterID := int64(floatID)
 
-	err = h.service.RemoveMemberFromTeam(teamID, targetUserID, requesterID)
+	err = h.service.RemoveMemberFromTeam(c.Request.Context(), teamID, targetUserID, requesterID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -377,7 +377,7 @@ func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
 	}
 	requesterID := int64(floatID)
 
-	err = h.service.UpdateMemberRole(teamID, targetUserID, req.Role, requesterID)
+	err = h.service.UpdateMemberRole(c.Request.Context(), teamID, targetUserID, req.Role, requesterID)
 	if err != nil {
 		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})

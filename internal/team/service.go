@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"log"
 	"team-management/internal/errors"
 	"team-management/internal/models"
@@ -8,14 +9,14 @@ import (
 )
 
 type TeamService interface {
-	CreateTeam(name string, userID int64, userRole string) (*models.Team, error)
-	GetTeamByID(id int64) (*models.Team, error)
-	GetTeamsByUserID(userID int64) ([]*models.Team, error)
-	UpdateTeam(id int64, name string, requesterID int64) (*models.Team, error)
-	DeleteTeam(id int64, requesterID int64) error
-	AddMemberToTeam(teamID int64, targetID int64, requesterID int64) error
-	RemoveMemberFromTeam(teamID int64, targetID int64, requesterID int64) error
-	UpdateMemberRole(teamID int64, targetID int64, newRole string, requesterID int64) error
+	CreateTeam(ctx context.Context, name string, userID int64, userRole string) (*models.Team, error)
+	GetTeamByID(ctx context.Context, id int64) (*models.Team, error)
+	GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error)
+	UpdateTeam(ctx context.Context, id int64, name string, requesterID int64) (*models.Team, error)
+	DeleteTeam(ctx context.Context, id int64, requesterID int64) error
+	AddMemberToTeam(ctx context.Context, teamID int64, targetID int64, requesterID int64) error
+	RemoveMemberFromTeam(ctx context.Context, teamID int64, targetID int64, requesterID int64) error
+	UpdateMemberRole(ctx context.Context, teamID int64, targetID int64, newRole string, requesterID int64) error
 }
 
 type teamService struct {
@@ -26,7 +27,7 @@ func NewTeamService(repo TeamRepository) TeamService {
 	return &teamService{repo: repo}
 }
 
-func (s *teamService) CreateTeam(name string, userID int64, userRole string) (*models.Team, error) {
+func (s *teamService) CreateTeam(ctx context.Context, name string, userID int64, userRole string) (*models.Team, error) {
 	// Validate input
 	if len(name) == 0 {
 		return nil, errors.NewValidationError("team name", "cannot be empty")
@@ -47,7 +48,7 @@ func (s *teamService) CreateTeam(name string, userID int64, userRole string) (*m
 		UpdatedAt: time.Now(),
 	}
 
-	err, teamID := s.repo.CreateTeam(team, userID, userRole)
+	err, teamID := s.repo.CreateTeam(ctx, team, userID, userRole)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeInternal) {
 			log.Printf("Failed to create team '%s' for user %d: %v", name, userID, err)
@@ -62,12 +63,12 @@ func (s *teamService) CreateTeam(name string, userID int64, userRole string) (*m
 	return team, nil
 }
 
-func (s *teamService) GetTeamByID(id int64) (*models.Team, error) {
+func (s *teamService) GetTeamByID(ctx context.Context, id int64) (*models.Team, error) {
 	if id <= 0 {
 		return nil, errors.NewValidationError("team ID", "must be greater than 0")
 	}
 
-	team, err := s.repo.GetTeamByID(id)
+	team, err := s.repo.GetTeamByID(ctx, id)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return nil, err
@@ -78,12 +79,12 @@ func (s *teamService) GetTeamByID(id int64) (*models.Team, error) {
 	return team, nil
 }
 
-func (s *teamService) GetTeamsByUserID(userID int64) ([]*models.Team, error) {
+func (s *teamService) GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error) {
 	if userID <= 0 {
 		return nil, errors.NewValidationError("user ID", "must be greater than 0")
 	}
 
-	teams, err := s.repo.GetTeamsByUserID(userID)
+	teams, err := s.repo.GetTeamsByUserID(ctx, userID)
 	if err != nil {
 		log.Printf("Database error retrieving teams for user %d: %v", userID, err)
 		return nil, errors.NewInternalError("Failed to retrieve teams", err)
@@ -91,7 +92,7 @@ func (s *teamService) GetTeamsByUserID(userID int64) ([]*models.Team, error) {
 	return teams, nil
 }
 
-func (s *teamService) UpdateTeam(id int64, name string, requesterID int64) (*models.Team, error) {
+func (s *teamService) UpdateTeam(ctx context.Context, id int64, name string, requesterID int64) (*models.Team, error) {
 	// Validate input
 	if id <= 0 {
 		return nil, errors.NewValidationError("team ID", "must be greater than 0")
@@ -104,7 +105,7 @@ func (s *teamService) UpdateTeam(id int64, name string, requesterID int64) (*mod
 	}
 
 	// Check if team exists
-	team, err := s.repo.GetTeamByID(id)
+	team, err := s.repo.GetTeamByID(ctx, id)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return nil, errors.NewNotFoundError("team")
@@ -118,7 +119,7 @@ func (s *teamService) UpdateTeam(id int64, name string, requesterID int64) (*mod
 	}
 
 	// Check if requester is a manager of this team
-	requesterRole, err := s.repo.GetTeamRole(id, requesterID)
+	requesterRole, err := s.repo.GetTeamRole(ctx, id, requesterID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", requesterID, id)
@@ -136,7 +137,7 @@ func (s *teamService) UpdateTeam(id int64, name string, requesterID int64) (*mod
 	team.Name = name
 	team.UpdatedAt = time.Now()
 
-	err = s.repo.UpdateTeam(team)
+	err = s.repo.UpdateTeam(ctx, team)
 	if err != nil {
 		log.Printf("Database error updating team %d: %v", id, err)
 		return nil, errors.NewInternalError("Failed to update team", err)
@@ -146,14 +147,14 @@ func (s *teamService) UpdateTeam(id int64, name string, requesterID int64) (*mod
 	return team, nil
 }
 
-func (s *teamService) DeleteTeam(id int64, requesterID int64) error {
+func (s *teamService) DeleteTeam(ctx context.Context, id int64, requesterID int64) error {
 	// Validate input
 	if id <= 0 {
 		return errors.NewValidationError("team ID", "must be greater than 0")
 	}
 
 	// Check if team exists
-	team, err := s.repo.GetTeamByID(id)
+	team, err := s.repo.GetTeamByID(ctx, id)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return errors.NewNotFoundError("team")
@@ -167,7 +168,7 @@ func (s *teamService) DeleteTeam(id int64, requesterID int64) error {
 	}
 
 	// Check if requester is the main_manager of this team (only main manager can delete)
-	requesterRole, err := s.repo.GetTeamRole(id, requesterID)
+	requesterRole, err := s.repo.GetTeamRole(ctx, id, requesterID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", requesterID, id)
@@ -182,7 +183,7 @@ func (s *teamService) DeleteTeam(id int64, requesterID int64) error {
 		return errors.NewForbiddenError("only the main manager can delete a team")
 	}
 
-	err = s.repo.DeleteTeam(id)
+	err = s.repo.DeleteTeam(ctx, id)
 	if err != nil {
 		log.Printf("Database error deleting team %d: %v", id, err)
 		return errors.NewInternalError("Failed to delete team", err)
@@ -192,7 +193,7 @@ func (s *teamService) DeleteTeam(id int64, requesterID int64) error {
 	return nil
 }
 
-func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID int64) error {
+func (s *teamService) AddMemberToTeam(ctx context.Context, teamID int64, targetID int64, requesterID int64) error {
 	// Validate input
 	if teamID <= 0 {
 		return errors.NewValidationError("team ID", "must be greater than 0")
@@ -205,7 +206,7 @@ func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID 
 	}
 
 	// Check if team exists
-	team, err := s.repo.GetTeamByID(teamID)
+	team, err := s.repo.GetTeamByID(ctx, teamID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return errors.NewNotFoundError("team")
@@ -219,7 +220,7 @@ func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID 
 	}
 
 	// Check if requester has permission
-	requesterRole, err := s.repo.GetTeamRole(teamID, requesterID)
+	requesterRole, err := s.repo.GetTeamRole(ctx, teamID, requesterID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", requesterID, teamID)
@@ -234,7 +235,7 @@ func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID 
 		return errors.NewForbiddenError("only managers can add members to a team")
 	}
 
-	userExists, err := s.repo.UserExists(targetID)
+	userExists, err := s.repo.UserExists(ctx, targetID)
 	if err != nil {
 		log.Printf("Database error checking user existence for user %d: %v", targetID, err)
 		return errors.NewInternalError("Failed to verify target user", err)
@@ -244,7 +245,7 @@ func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID 
 		return errors.NewNotFoundError("user")
 	}
 
-	err = s.repo.AddMember(teamID, targetID, "member")
+	err = s.repo.AddMember(ctx, teamID, targetID, "member")
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeConflict) {
 			log.Printf("User %d is already a member of team %d", targetID, teamID)
@@ -258,7 +259,7 @@ func (s *teamService) AddMemberToTeam(teamID int64, targetID int64, requesterID 
 	return nil
 }
 
-func (s *teamService) RemoveMemberFromTeam(teamID int64, targetID int64, requesterID int64) error {
+func (s *teamService) RemoveMemberFromTeam(ctx context.Context, teamID int64, targetID int64, requesterID int64) error {
 	// Validate input
 	if teamID <= 0 {
 		return errors.NewValidationError("team ID", "must be greater than 0")
@@ -268,7 +269,7 @@ func (s *teamService) RemoveMemberFromTeam(teamID int64, targetID int64, request
 	}
 
 	// Check if team exists
-	team, err := s.repo.GetTeamByID(teamID)
+	team, err := s.repo.GetTeamByID(ctx, teamID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return errors.NewNotFoundError("team")
@@ -282,7 +283,7 @@ func (s *teamService) RemoveMemberFromTeam(teamID int64, targetID int64, request
 	}
 
 	// Check if requester has permission
-	requesterRole, err := s.repo.GetTeamRole(teamID, requesterID)
+	requesterRole, err := s.repo.GetTeamRole(ctx, teamID, requesterID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", requesterID, teamID)
@@ -297,7 +298,7 @@ func (s *teamService) RemoveMemberFromTeam(teamID int64, targetID int64, request
 		return errors.NewForbiddenError("only managers can remove members from a team")
 	}
 
-	err = s.repo.RemoveMember(teamID, targetID)
+	err = s.repo.RemoveMember(ctx, teamID, targetID)
 	if err != nil {
 		log.Printf("Database error removing user %d from team %d: %v", targetID, teamID, err)
 		return errors.NewInternalError("Failed to remove member from team", err)
@@ -307,7 +308,7 @@ func (s *teamService) RemoveMemberFromTeam(teamID int64, targetID int64, request
 	return nil
 }
 
-func (s *teamService) UpdateMemberRole(teamID int64, targetID int64, newRole string, requesterID int64) error {
+func (s *teamService) UpdateMemberRole(ctx context.Context, teamID int64, targetID int64, newRole string, requesterID int64) error {
 	// Validate input
 	if teamID <= 0 {
 		return errors.NewValidationError("team ID", "must be greater than 0")
@@ -320,7 +321,7 @@ func (s *teamService) UpdateMemberRole(teamID int64, targetID int64, newRole str
 	}
 
 	// Check if team exists
-	team, err := s.repo.GetTeamByID(teamID)
+	team, err := s.repo.GetTeamByID(ctx, teamID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			return errors.NewNotFoundError("team")
@@ -334,7 +335,7 @@ func (s *teamService) UpdateMemberRole(teamID int64, targetID int64, newRole str
 	}
 
 	// Check if requester is the main_manager (only main manager can change roles)
-	requesterRole, err := s.repo.GetTeamRole(teamID, requesterID)
+	requesterRole, err := s.repo.GetTeamRole(ctx, teamID, requesterID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", requesterID, teamID)
@@ -350,7 +351,7 @@ func (s *teamService) UpdateMemberRole(teamID int64, targetID int64, newRole str
 	}
 
 	// Verify target user is a member of the team
-	targetRole, err := s.repo.GetTeamRole(teamID, targetID)
+	targetRole, err := s.repo.GetTeamRole(ctx, teamID, targetID)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("User %d is not a member of team %d", targetID, teamID)
@@ -366,7 +367,7 @@ func (s *teamService) UpdateMemberRole(teamID int64, targetID int64, newRole str
 		return errors.NewForbiddenError("cannot change the role of the main manager")
 	}
 
-	err = s.repo.UpdateMemberRole(teamID, targetID, newRole)
+	err = s.repo.UpdateMemberRole(ctx, teamID, targetID, newRole)
 	if err != nil {
 		log.Printf("Database error updating role for user %d in team %d: %v", targetID, teamID, err)
 		return errors.NewInternalError("Failed to update member role", err)
