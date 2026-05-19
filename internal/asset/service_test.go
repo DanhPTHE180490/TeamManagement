@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -9,166 +10,166 @@ import (
 )
 
 type mockAssetRepo struct {
-	getNoteByIDFn         func(int64) (*models.Note, error)
-	getFolderShareLevelFn func(int64, int64) (string, error)
-	getNoteShareLevelFn   func(int64, int64) (string, error)
-	isManagerOfOwnerFn    func(int64, int64) (bool, error)
-	updateNoteFn          func(*models.Note) error
-	createNoteFn          func(*models.Note) (*models.Note, error)
-	getUserNotesFn        func(int64) ([]*models.Note, error)
-	deleteNoteFn          func(int64) error
-	shareNoteFn           func(*models.NoteShare) error
-	removeNoteShareFn     func(int64, int64) error
-	getNoteSharesFn       func(int64) ([]*models.NoteShare, error)
-	createFolderFn        func(*models.Folder) (*models.Folder, error)
-	getUserFoldersFn      func(int64) ([]*models.Folder, error)
-	getFolderByIDFn       func(int64) (*models.Folder, error)
-	deleteFolderFn        func(int64) error
-	shareFolderFn         func(*models.FolderShare) error
-	removeFolderShareFn   func(int64, int64) error
-	getSharedNotesFn      func(int64) ([]*models.Note, error)
-	getFolderSharesFn     func(int64) ([]*models.FolderShare, error)
-	getManagersOfOwnerFn  func(int64) ([]int64, error)
+	getNoteByIDFn         func(context.Context, int64) (*models.Note, error)
+	getFolderShareLevelFn func(context.Context, int64, int64) (string, error)
+	getNoteShareLevelFn   func(context.Context, int64, int64) (string, error)
+	isManagerOfOwnerFn    func(context.Context, int64, int64) (bool, error)
+	updateNoteFn          func(context.Context, *models.Note) error
+	createNoteFn          func(context.Context, *models.Note) (*models.Note, error)
+	getUserNotesFn        func(context.Context, int64) ([]*models.Note, error)
+	deleteNoteFn          func(context.Context, int64) error
+	shareNoteFn           func(context.Context, *models.NoteShare) error
+	removeNoteShareFn     func(context.Context, int64, int64) error
+	getNoteSharesFn       func(context.Context, int64) ([]*models.NoteShare, error)
+	createFolderFn        func(context.Context, *models.Folder) (*models.Folder, error)
+	getUserFoldersFn      func(context.Context, int64) ([]*models.Folder, error)
+	getFolderByIDFn       func(context.Context, int64) (*models.Folder, error)
+	deleteFolderFn        func(context.Context, int64) error
+	shareFolderFn         func(context.Context, *models.FolderShare) error
+	removeFolderShareFn   func(context.Context, int64, int64) error
+	getSharedNotesFn      func(context.Context, int64) ([]*models.Note, error)
+	getFolderSharesFn     func(context.Context, int64) ([]*models.FolderShare, error)
+	getManagersOfOwnerFn  func(context.Context, int64) ([]int64, error)
 }
 
-func (m *mockAssetRepo) GetNoteByID(id int64) (*models.Note, error) {
+func (m *mockAssetRepo) GetNoteByID(_ context.Context, id int64) (*models.Note, error) {
 	if m.getNoteByIDFn != nil {
-		return m.getNoteByIDFn(id)
+		return m.getNoteByIDFn(context.Background(), id)
 	}
 	return &models.Note{ID: id}, nil
 }
 
-func (m *mockAssetRepo) GetFolderShareLevel(folderID, userID int64) (string, error) {
+func (m *mockAssetRepo) GetFolderShareLevel(_ context.Context, folderID, userID int64) (string, error) {
 	if m.getFolderShareLevelFn != nil {
-		return m.getFolderShareLevelFn(folderID, userID)
+		return m.getFolderShareLevelFn(context.Background(), folderID, userID)
 	}
 	return "", nil
 }
 
-func (m *mockAssetRepo) GetNoteShareLevel(noteID, userID int64) (string, error) {
+func (m *mockAssetRepo) GetNoteShareLevel(_ context.Context, noteID, userID int64) (string, error) {
 	if m.getNoteShareLevelFn != nil {
-		return m.getNoteShareLevelFn(noteID, userID)
+		return m.getNoteShareLevelFn(context.Background(), noteID, userID)
 	}
 	return "", nil
 }
 
-func (m *mockAssetRepo) IsManagerOfOwner(requesterID, ownerID int64) (bool, error) {
+func (m *mockAssetRepo) IsManagerOfOwner(_ context.Context, requesterID, ownerID int64) (bool, error) {
 	if m.isManagerOfOwnerFn != nil {
-		return m.isManagerOfOwnerFn(requesterID, ownerID)
+		return m.isManagerOfOwnerFn(context.Background(), requesterID, ownerID)
 	}
 	return false, nil
 }
 
-func (m *mockAssetRepo) UpdateNote(note *models.Note) error {
+func (m *mockAssetRepo) UpdateNote(_ context.Context, note *models.Note) error {
 	if m.updateNoteFn != nil {
-		return m.updateNoteFn(note)
+		return m.updateNoteFn(context.Background(), note)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) CreateNote(note *models.Note) (*models.Note, error) {
+func (m *mockAssetRepo) CreateNote(_ context.Context, note *models.Note) (*models.Note, error) {
 	if m.createNoteFn != nil {
-		return m.createNoteFn(note)
+		return m.createNoteFn(context.Background(), note)
 	}
 	note.ID = 1
 	return note, nil
 }
 
-func (m *mockAssetRepo) GetUserNotes(userID int64) ([]*models.Note, error) {
+func (m *mockAssetRepo) GetUserNotes(_ context.Context, userID int64) ([]*models.Note, error) {
 	if m.getUserNotesFn != nil {
-		return m.getUserNotesFn(userID)
+		return m.getUserNotesFn(context.Background(), userID)
 	}
 	return []*models.Note{}, nil
 }
 
-func (m *mockAssetRepo) DeleteNote(noteID int64) error {
+func (m *mockAssetRepo) DeleteNote(_ context.Context, noteID int64) error {
 	if m.deleteNoteFn != nil {
-		return m.deleteNoteFn(noteID)
+		return m.deleteNoteFn(context.Background(), noteID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) ShareNote(noteShare *models.NoteShare) error {
+func (m *mockAssetRepo) ShareNote(_ context.Context, noteShare *models.NoteShare) error {
 	if m.shareNoteFn != nil {
-		return m.shareNoteFn(noteShare)
+		return m.shareNoteFn(context.Background(), noteShare)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) RemoveNoteShare(noteID, userID int64) error {
+func (m *mockAssetRepo) RemoveNoteShare(_ context.Context, noteID, userID int64) error {
 	if m.removeNoteShareFn != nil {
-		return m.removeNoteShareFn(noteID, userID)
+		return m.removeNoteShareFn(context.Background(), noteID, userID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) GetNoteShares(noteID int64) ([]*models.NoteShare, error) {
+func (m *mockAssetRepo) GetNoteShares(_ context.Context, noteID int64) ([]*models.NoteShare, error) {
 	if m.getNoteSharesFn != nil {
-		return m.getNoteSharesFn(noteID)
+		return m.getNoteSharesFn(context.Background(), noteID)
 	}
 	return []*models.NoteShare{}, nil
 }
 
-func (m *mockAssetRepo) CreateFolder(folder *models.Folder) (*models.Folder, error) {
+func (m *mockAssetRepo) CreateFolder(_ context.Context, folder *models.Folder) (*models.Folder, error) {
 	if m.createFolderFn != nil {
-		return m.createFolderFn(folder)
+		return m.createFolderFn(context.Background(), folder)
 	}
 	folder.ID = 1
 	return folder, nil
 }
 
-func (m *mockAssetRepo) GetUserFolders(userID int64) ([]*models.Folder, error) {
+func (m *mockAssetRepo) GetUserFolders(_ context.Context, userID int64) ([]*models.Folder, error) {
 	if m.getUserFoldersFn != nil {
-		return m.getUserFoldersFn(userID)
+		return m.getUserFoldersFn(context.Background(), userID)
 	}
 	return []*models.Folder{}, nil
 }
 
-func (m *mockAssetRepo) GetFolderByID(folderID int64) (*models.Folder, error) {
+func (m *mockAssetRepo) GetFolderByID(_ context.Context, folderID int64) (*models.Folder, error) {
 	if m.getFolderByIDFn != nil {
-		return m.getFolderByIDFn(folderID)
+		return m.getFolderByIDFn(context.Background(), folderID)
 	}
 	return &models.Folder{ID: folderID}, nil
 }
 
-func (m *mockAssetRepo) DeleteFolder(folderID int64) error {
+func (m *mockAssetRepo) DeleteFolder(_ context.Context, folderID int64) error {
 	if m.deleteFolderFn != nil {
-		return m.deleteFolderFn(folderID)
+		return m.deleteFolderFn(context.Background(), folderID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) ShareFolder(folderShare *models.FolderShare) error {
+func (m *mockAssetRepo) ShareFolder(_ context.Context, folderShare *models.FolderShare) error {
 	if m.shareFolderFn != nil {
-		return m.shareFolderFn(folderShare)
+		return m.shareFolderFn(context.Background(), folderShare)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) RemoveFolderShare(folderID, userID int64) error {
+func (m *mockAssetRepo) RemoveFolderShare(_ context.Context, folderID, userID int64) error {
 	if m.removeFolderShareFn != nil {
-		return m.removeFolderShareFn(folderID, userID)
+		return m.removeFolderShareFn(context.Background(), folderID, userID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) GetSharedNotes(userID int64) ([]*models.Note, error) {
+func (m *mockAssetRepo) GetSharedNotes(_ context.Context, userID int64) ([]*models.Note, error) {
 	if m.getSharedNotesFn != nil {
-		return m.getSharedNotesFn(userID)
+		return m.getSharedNotesFn(context.Background(), userID)
 	}
 	return []*models.Note{}, nil
 }
 
-func (m *mockAssetRepo) GetFolderShares(folderID int64) ([]*models.FolderShare, error) {
+func (m *mockAssetRepo) GetFolderShares(_ context.Context, folderID int64) ([]*models.FolderShare, error) {
 	if m.getFolderSharesFn != nil {
-		return m.getFolderSharesFn(folderID)
+		return m.getFolderSharesFn(context.Background(), folderID)
 	}
 	return []*models.FolderShare{}, nil
 }
 
-func (m *mockAssetRepo) GetManagersOfOwner(ownerID int64) ([]int64, error) {
+func (m *mockAssetRepo) GetManagersOfOwner(_ context.Context, ownerID int64) ([]int64, error) {
 	if m.getManagersOfOwnerFn != nil {
-		return m.getManagersOfOwnerFn(ownerID)
+		return m.getManagersOfOwnerFn(context.Background(), ownerID)
 	}
 	return []int64{}, nil
 }
@@ -207,7 +208,7 @@ func TestAssetService_CreateNote(t *testing.T) {
 			repo := &mockAssetRepo{}
 			service := NewAssetService(repo)
 
-			result, err := service.CreateNote(tc.requesterID, tc.title, tc.content, tc.folderID)
+			result, err := service.CreateNote(context.Background(), tc.requesterID, tc.title, tc.content, tc.folderID)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -244,7 +245,7 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			requesterID: 10,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -255,16 +256,16 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			requesterID: 20,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getFolderShareLevelFn = func(folderID, userID int64) (string, error) {
+				repo.getFolderShareLevelFn = func(_ context.Context, folderID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.getNoteShareLevelFn = func(noteID, userID int64) (string, error) {
+				repo.getNoteShareLevelFn = func(_ context.Context, noteID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.isManagerOfOwnerFn = func(requesterID, ownerID int64) (bool, error) {
+				repo.isManagerOfOwnerFn = func(_ context.Context, requesterID, ownerID int64) (bool, error) {
 					return false, nil
 				}
 			},
@@ -276,13 +277,13 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			requesterID: 20,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getFolderShareLevelFn = func(folderID, userID int64) (string, error) {
+				repo.getFolderShareLevelFn = func(_ context.Context, folderID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.getNoteShareLevelFn = func(noteID, userID int64) (string, error) {
+				repo.getNoteShareLevelFn = func(_ context.Context, noteID, userID int64) (string, error) {
 					return "read", nil
 				}
 			},
@@ -293,16 +294,16 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			requesterID: 30,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getFolderShareLevelFn = func(folderID, userID int64) (string, error) {
+				repo.getFolderShareLevelFn = func(_ context.Context, folderID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.getNoteShareLevelFn = func(noteID, userID int64) (string, error) {
+				repo.getNoteShareLevelFn = func(_ context.Context, noteID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.isManagerOfOwnerFn = func(requesterID, ownerID int64) (bool, error) {
+				repo.isManagerOfOwnerFn = func(_ context.Context, requesterID, ownerID int64) (bool, error) {
 					return true, nil
 				}
 			},
@@ -318,7 +319,7 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			note, err := service.GetNoteByID(tc.requesterID, tc.noteID)
+			note, err := service.GetNoteByID(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -365,10 +366,10 @@ func TestAssetService_UpdateNote(t *testing.T) {
 			title:       "New Title",
 			content:     "New Content",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.updateNoteFn = func(n *models.Note) error {
+				repo.updateNoteFn = func(_ context.Context, n *models.Note) error {
 					return nil
 				}
 			},
@@ -381,13 +382,13 @@ func TestAssetService_UpdateNote(t *testing.T) {
 			title:       "Hacked",
 			content:     "Hacked",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getFolderShareLevelFn = func(folderID, userID int64) (string, error) {
+				repo.getFolderShareLevelFn = func(_ context.Context, folderID, userID int64) (string, error) {
 					return "", nil
 				}
-				repo.getNoteShareLevelFn = func(noteID, userID int64) (string, error) {
+				repo.getNoteShareLevelFn = func(_ context.Context, noteID, userID int64) (string, error) {
 					return "read", nil
 				}
 			},
@@ -401,13 +402,13 @@ func TestAssetService_UpdateNote(t *testing.T) {
 			title:       "Updated",
 			content:     "Updated content",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getNoteShareLevelFn = func(noteID, userID int64) (string, error) {
+				repo.getNoteShareLevelFn = func(_ context.Context, noteID, userID int64) (string, error) {
 					return "write", nil
 				}
-				repo.updateNoteFn = func(n *models.Note) error {
+				repo.updateNoteFn = func(_ context.Context, n *models.Note) error {
 					return nil
 				}
 			},
@@ -423,7 +424,7 @@ func TestAssetService_UpdateNote(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			note, err := service.UpdateNote(tc.requesterID, tc.noteID, tc.title, tc.content, tc.folderID)
+			note, err := service.UpdateNote(context.Background(), tc.requesterID, tc.noteID, tc.title, tc.content, tc.folderID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -460,10 +461,10 @@ func TestAssetService_DeleteNote(t *testing.T) {
 			requesterID: 10,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.deleteNoteFn = func(id int64) error {
+				repo.deleteNoteFn = func(_ context.Context, id int64) error {
 					return nil
 				}
 			},
@@ -474,7 +475,7 @@ func TestAssetService_DeleteNote(t *testing.T) {
 			requesterID: 20,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -491,7 +492,7 @@ func TestAssetService_DeleteNote(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			err := service.DeleteNote(tc.requesterID, tc.noteID)
+			err := service.DeleteNote(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -529,10 +530,10 @@ func TestAssetService_ShareNote(t *testing.T) {
 			sharedWithUserID: 20,
 			permission:       "read",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.shareNoteFn = func(ns *models.NoteShare) error {
+				repo.shareNoteFn = func(_ context.Context, ns *models.NoteShare) error {
 					return nil
 				}
 			},
@@ -545,10 +546,10 @@ func TestAssetService_ShareNote(t *testing.T) {
 			sharedWithUserID: 20,
 			permission:       "write",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.shareNoteFn = func(ns *models.NoteShare) error {
+				repo.shareNoteFn = func(_ context.Context, ns *models.NoteShare) error {
 					return nil
 				}
 			},
@@ -561,7 +562,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			sharedWithUserID: 20,
 			permission:       "admin",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -575,7 +576,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			sharedWithUserID: 30,
 			permission:       "read",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -592,7 +593,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			err := service.ShareNote(tc.requesterID, tc.noteID, tc.sharedWithUserID, tc.permission)
+			err := service.ShareNote(context.Background(), tc.requesterID, tc.noteID, tc.sharedWithUserID, tc.permission)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -617,13 +618,13 @@ func TestAssetService_GetUserNotes(t *testing.T) {
 	}
 
 	repo := &mockAssetRepo{
-		getUserNotesFn: func(userID int64) ([]*models.Note, error) {
+		getUserNotesFn: func(_ context.Context, userID int64) ([]*models.Note, error) {
 			return userNotes, nil
 		},
 	}
 
 	service := NewAssetService(repo)
-	notes, err := service.GetUserNotes(10)
+	notes, err := service.GetUserNotes(context.Background(), 10)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -646,7 +647,7 @@ func TestAssetService_CreateFolder(t *testing.T) {
 			requesterID: 10,
 			folderName:  "My Folder",
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.createFolderFn = func(f *models.Folder) (*models.Folder, error) {
+				repo.createFolderFn = func(_ context.Context, f *models.Folder) (*models.Folder, error) {
 					f.ID = 5
 					return f, nil
 				}
@@ -663,7 +664,7 @@ func TestAssetService_CreateFolder(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			folder, err := service.CreateFolder(tc.requesterID, tc.folderName)
+			folder, err := service.CreateFolder(context.Background(), tc.requesterID, tc.folderName)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -693,10 +694,10 @@ func TestAssetService_DeleteFolder(t *testing.T) {
 			requesterID: 10,
 			folderID:    1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getFolderByIDFn = func(id int64) (*models.Folder, error) {
+				repo.getFolderByIDFn = func(_ context.Context, id int64) (*models.Folder, error) {
 					return testFolder, nil
 				}
-				repo.deleteFolderFn = func(id int64) error {
+				repo.deleteFolderFn = func(_ context.Context, id int64) error {
 					return nil
 				}
 			},
@@ -707,7 +708,7 @@ func TestAssetService_DeleteFolder(t *testing.T) {
 			requesterID: 20,
 			folderID:    1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getFolderByIDFn = func(id int64) (*models.Folder, error) {
+				repo.getFolderByIDFn = func(_ context.Context, id int64) (*models.Folder, error) {
 					return testFolder, nil
 				}
 			},
@@ -724,7 +725,7 @@ func TestAssetService_DeleteFolder(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			err := service.DeleteFolder(tc.requesterID, tc.folderID)
+			err := service.DeleteFolder(context.Background(), tc.requesterID, tc.folderID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -760,10 +761,10 @@ func TestAssetService_RemoveNoteShare(t *testing.T) {
 			noteID:           1,
 			sharedWithUserID: 20,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.removeNoteShareFn = func(noteID, userID int64) error {
+				repo.removeNoteShareFn = func(_ context.Context, noteID, userID int64) error {
 					return nil
 				}
 			},
@@ -775,7 +776,7 @@ func TestAssetService_RemoveNoteShare(t *testing.T) {
 			noteID:           1,
 			sharedWithUserID: 30,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -792,7 +793,7 @@ func TestAssetService_RemoveNoteShare(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			err := service.RemoveNoteShare(tc.requesterID, tc.noteID, tc.sharedWithUserID)
+			err := service.RemoveNoteShare(context.Background(), tc.requesterID, tc.noteID, tc.sharedWithUserID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -831,10 +832,10 @@ func TestAssetService_GetNoteShares(t *testing.T) {
 			requesterID: 10,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getNoteSharesFn = func(noteID int64) ([]*models.NoteShare, error) {
+				repo.getNoteSharesFn = func(_ context.Context, noteID int64) ([]*models.NoteShare, error) {
 					return shares, nil
 				}
 			},
@@ -846,7 +847,7 @@ func TestAssetService_GetNoteShares(t *testing.T) {
 			requesterID: 20,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -863,7 +864,7 @@ func TestAssetService_GetNoteShares(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			shares, err := service.GetNoteShares(tc.requesterID, tc.noteID)
+			shares, err := service.GetNoteShares(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -908,18 +909,18 @@ func TestAssetService_GetNoteAccess(t *testing.T) {
 			requesterID: 10,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
-				repo.getNoteSharesFn = func(noteID int64) ([]*models.NoteShare, error) {
+				repo.getNoteSharesFn = func(_ context.Context, noteID int64) ([]*models.NoteShare, error) {
 					return []*models.NoteShare{
 						{NoteID: 1, SharedWithUserID: 20, PermissionLevel: "read"},
 					}, nil
 				}
-				repo.getFolderSharesFn = func(folderID int64) ([]*models.FolderShare, error) {
+				repo.getFolderSharesFn = func(_ context.Context, folderID int64) ([]*models.FolderShare, error) {
 					return []*models.FolderShare{}, nil
 				}
-				repo.getManagersOfOwnerFn = func(ownerID int64) ([]int64, error) {
+				repo.getManagersOfOwnerFn = func(_ context.Context, ownerID int64) ([]int64, error) {
 					return []int64{}, nil
 				}
 			},
@@ -931,7 +932,7 @@ func TestAssetService_GetNoteAccess(t *testing.T) {
 			requesterID: 20,
 			noteID:      1,
 			setupRepo: func(repo *mockAssetRepo) {
-				repo.getNoteByIDFn = func(id int64) (*models.Note, error) {
+				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil
 				}
 			},
@@ -948,7 +949,7 @@ func TestAssetService_GetNoteAccess(t *testing.T) {
 			}
 			service := NewAssetService(repo)
 
-			access, err := service.GetNoteAccess(tc.requesterID, tc.noteID)
+			access, err := service.GetNoteAccess(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")

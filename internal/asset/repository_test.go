@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -67,7 +68,7 @@ func TestAssetRepository_GetNoteByID(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			note, err := repo.GetNoteByID(tc.noteID)
+			note, err := repo.GetNoteByID(context.Background(), tc.noteID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -126,7 +127,7 @@ func TestAssetRepository_CreateNote(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			result, err := repo.CreateNote(tc.note)
+			result, err := repo.CreateNote(context.Background(), tc.note)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -149,11 +150,11 @@ func TestAssetRepository_CreateNote(t *testing.T) {
 
 func TestAssetRepository_GetUserNotes(t *testing.T) {
 	tests := []struct {
-		name     string
-		userID   int64
-		setupDB  func(sqlmock.Sqlmock)
-		wantLen  int
-		wantErr  bool
+		name    string
+		userID  int64
+		setupDB func(sqlmock.Sqlmock)
+		wantLen int
+		wantErr bool
 	}{
 		{
 			name:   "success with notes",
@@ -190,7 +191,7 @@ func TestAssetRepository_GetUserNotes(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			notes, err := repo.GetUserNotes(tc.userID)
+			notes, err := repo.GetUserNotes(context.Background(), tc.userID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -246,7 +247,7 @@ func TestAssetRepository_DeleteNote(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			err = repo.DeleteNote(tc.noteID)
+			err = repo.DeleteNote(context.Background(), tc.noteID)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -295,7 +296,7 @@ func TestAssetRepository_ShareNote(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			err = repo.ShareNote(tc.share)
+			err = repo.ShareNote(context.Background(), tc.share)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -349,7 +350,7 @@ func TestAssetRepository_GetNoteShares(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			shares, err := repo.GetNoteShares(tc.noteID)
+			shares, err := repo.GetNoteShares(context.Background(), tc.noteID)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -392,7 +393,7 @@ func TestAssetRepository_CreateFolder(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			result, err := repo.CreateFolder(tc.folder)
+			result, err := repo.CreateFolder(context.Background(), tc.folder)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -449,7 +450,7 @@ func TestAssetRepository_GetUserFolders(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			folders, err := repo.GetUserFolders(tc.userID)
+			folders, err := repo.GetUserFolders(context.Background(), tc.userID)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -465,12 +466,12 @@ func TestAssetRepository_GetUserFolders(t *testing.T) {
 
 func TestAssetRepository_GetFolderByID(t *testing.T) {
 	tests := []struct {
-		name      string
-		folderID  int64
-		setupDB   func(sqlmock.Sqlmock)
-		wantName  string
-		wantErr   bool
-		wantType  apperrors.ErrorType
+		name     string
+		folderID int64
+		setupDB  func(sqlmock.Sqlmock)
+		wantName string
+		wantErr  bool
+		wantType apperrors.ErrorType
 	}{
 		{
 			name:     "success",
@@ -507,7 +508,7 @@ func TestAssetRepository_GetFolderByID(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			folder, err := repo.GetFolderByID(tc.folderID)
+			folder, err := repo.GetFolderByID(context.Background(), tc.folderID)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -530,12 +531,12 @@ func TestAssetRepository_GetFolderByID(t *testing.T) {
 
 func TestAssetRepository_IsManagerOfOwner(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		requesterID int64
-		ownerID    int64
-		setupDB    func(sqlmock.Sqlmock)
-		wantResult bool
-		wantErr    bool
+		ownerID     int64
+		setupDB     func(sqlmock.Sqlmock)
+		wantResult  bool
+		wantErr     bool
 	}{
 		{
 			name:        "requester is manager",
@@ -572,7 +573,7 @@ func TestAssetRepository_IsManagerOfOwner(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			result, err := repo.IsManagerOfOwner(tc.requesterID, tc.ownerID)
+			result, err := repo.IsManagerOfOwner(context.Background(), tc.requesterID, tc.ownerID)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -624,7 +625,7 @@ func TestAssetRepository_GetShareLevel(t *testing.T) {
 			tc.setupDB(mock)
 			repo := &assetRepositoryImpl{db: db}
 
-			level, err := repo.GetFolderShareLevel(1, 20)
+			level, err := repo.GetFolderShareLevel(context.Background(), 1, 20)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
 			}

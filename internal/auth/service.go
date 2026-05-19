@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -44,9 +45,9 @@ type BulkImportSummary struct {
 
 // AuthService defines the business logic interface
 type AuthService interface {
-	Register(username, email, password, role string) (*models.User, error)
-	Login(email, password string) (string, error)
-	BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error)
+	Register(ctx context.Context, username, email, password, role string) (*models.User, error)
+	Login(ctx context.Context, email, password string) (string, error)
+	BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error)
 }
 
 type authServiceImpl struct {
@@ -58,7 +59,7 @@ func NewAuthService(repo AuthRepository) AuthService {
 	return &authServiceImpl{repo: repo}
 }
 
-func (s *authServiceImpl) Register(username, email, password, role string) (*models.User, error) {
+func (s *authServiceImpl) Register(ctx context.Context, username, email, password, role string) (*models.User, error) {
 	// Validate input
 	if len(username) == 0 || len(username) > 50 {
 		return nil, errors.NewValidationError("username", "must be between 1 and 50 characters")
@@ -97,7 +98,7 @@ func (s *authServiceImpl) Register(username, email, password, role string) (*mod
 		UpdatedAt:    time.Now(),
 	}
 
-	err = s.repo.CreateUser(user)
+	err = s.repo.CreateUser(ctx, user)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeDuplicate) {
 			return nil, err // Already wrapped as duplicate error
@@ -110,7 +111,7 @@ func (s *authServiceImpl) Register(username, email, password, role string) (*mod
 	return user, nil
 }
 
-func (s *authServiceImpl) Login(email, password string) (string, error) {
+func (s *authServiceImpl) Login(ctx context.Context, email, password string) (string, error) {
 	// Validate input
 	if len(email) == 0 {
 		return "", errors.NewValidationError("email", "cannot be empty")
@@ -119,7 +120,7 @@ func (s *authServiceImpl) Login(email, password string) (string, error) {
 		return "", errors.NewValidationError("password", "cannot be empty")
 	}
 
-	user, err := s.repo.GetUserByEmail(email)
+	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.IsErrorType(err, errors.ErrTypeNotFound) {
 			log.Printf("Login attempt for non-existent user: %s", email)
@@ -151,7 +152,7 @@ func (s *authServiceImpl) Login(email, password string) (string, error) {
 	return tokenString, nil
 }
 
-func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportSummary, error) {
+func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error) {
 	csvReader := csv.NewReader(reader)
 	var wg sync.WaitGroup
 	jobChan := make(chan UserImportJob)
@@ -160,7 +161,7 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportS
 	numWorkers := 5
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go s.processImportJobs(&wg, jobChan, resultChan)
+		go s.processImportJobs(ctx, &wg, jobChan, resultChan)
 	}
 
 	go func() {
@@ -230,14 +231,14 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(reader io.Reader) (*BulkImportS
 	return summary, nil
 }
 
-func (s *authServiceImpl) processImportJobs(wg *sync.WaitGroup, jobChan <-chan UserImportJob, resultChan chan<- UserImportResult) {
+func (s *authServiceImpl) processImportJobs(ctx context.Context, wg *sync.WaitGroup, jobChan <-chan UserImportJob, resultChan chan<- UserImportResult) {
 	defer wg.Done()
 	for job := range jobChan {
 		if job.ErrorMsg != "" {
 			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: false, ErrorMsg: job.ErrorMsg}
 			continue
 		}
-		_, err := s.Register(job.Username, job.Email, job.Password, job.Role)
+		_, err := s.Register(ctx, job.Username, job.Email, job.Password, job.Role)
 		if err != nil {
 			log.Printf("Row %d import failed for user %s: %v", job.RowNumber, job.Username, err)
 

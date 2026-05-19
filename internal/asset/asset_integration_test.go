@@ -1,6 +1,7 @@
 package asset_test
 
 import (
+	"context"
 	"testing"
 
 	"team-management/internal/asset"
@@ -15,11 +16,11 @@ func TestAssetCreateShareAndAccess(t *testing.T) {
 	authRepo := auth.NewAuthRepository(db)
 	authSvc := auth.NewAuthService(authRepo)
 
-	owner, err := authSvc.Register("asset-owner", "asset-owner@example.com", "password123", "member")
+	owner, err := authSvc.Register(context.Background(), "asset-owner", "asset-owner@example.com", "password123", "member")
 	if err != nil {
 		t.Fatalf("failed to register owner: %v", err)
 	}
-	other, err := authSvc.Register("asset-other", "asset-other@example.com", "password123", "member")
+	other, err := authSvc.Register(context.Background(), "asset-other", "asset-other@example.com", "password123", "member")
 	if err != nil {
 		t.Fatalf("failed to register other user: %v", err)
 	}
@@ -27,22 +28,22 @@ func TestAssetCreateShareAndAccess(t *testing.T) {
 	assetRepo := asset.NewAssetRepository(db)
 	assetSvc := asset.NewAssetService(assetRepo)
 
-	folder, err := assetSvc.CreateFolder(int64(owner.ID), "My Folder")
+	folder, err := assetSvc.CreateFolder(context.Background(), int64(owner.ID), "My Folder")
 	if err != nil {
 		t.Fatalf("failed to create folder: %v", err)
 	}
 
-	note, err := assetSvc.CreateNote(int64(owner.ID), "IT Test Note", "some content", &folder.ID)
+	note, err := assetSvc.CreateNote(context.Background(), int64(owner.ID), "IT Test Note", "some content", &folder.ID)
 	if err != nil {
 		t.Fatalf("failed to create note: %v", err)
 	}
 
-	if err := assetSvc.ShareNote(int64(owner.ID), note.ID, int64(other.ID), "read"); err != nil {
+	if err := assetSvc.ShareNote(context.Background(), int64(owner.ID), note.ID, int64(other.ID), "read"); err != nil {
 		t.Fatalf("failed to share note: %v", err)
 	}
 
 	// other user should be able to see shared notes
-	shared, err := assetSvc.GetSharedNotes(int64(other.ID))
+	shared, err := assetSvc.GetSharedNotes(context.Background(), int64(other.ID))
 	if err != nil {
 		t.Fatalf("failed to get shared notes: %v", err)
 	}
