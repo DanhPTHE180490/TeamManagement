@@ -30,3 +30,5 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    stop_signal: SIGINT
+    stop_grace_period: 15s
