@@ -32,144 +32,144 @@ type mockAssetRepo struct {
 	getManagersOfOwnerFn  func(context.Context, int64) ([]int64, error)
 }
 
-func (m *mockAssetRepo) GetNoteByID(_ context.Context, id int64) (*models.Note, error) {
+func (m *mockAssetRepo) GetNoteByID(ctx context.Context, id int64) (*models.Note, error) {
 	if m.getNoteByIDFn != nil {
-		return m.getNoteByIDFn(context.Background(), id)
+		return m.getNoteByIDFn(ctx, id)
 	}
 	return &models.Note{ID: id}, nil
 }
 
-func (m *mockAssetRepo) GetFolderShareLevel(_ context.Context, folderID, userID int64) (string, error) {
+func (m *mockAssetRepo) GetFolderShareLevel(ctx context.Context, folderID, userID int64) (string, error) {
 	if m.getFolderShareLevelFn != nil {
-		return m.getFolderShareLevelFn(context.Background(), folderID, userID)
+		return m.getFolderShareLevelFn(ctx, folderID, userID)
 	}
 	return "", nil
 }
 
-func (m *mockAssetRepo) GetNoteShareLevel(_ context.Context, noteID, userID int64) (string, error) {
+func (m *mockAssetRepo) GetNoteShareLevel(ctx context.Context, noteID, userID int64) (string, error) {
 	if m.getNoteShareLevelFn != nil {
-		return m.getNoteShareLevelFn(context.Background(), noteID, userID)
+		return m.getNoteShareLevelFn(ctx, noteID, userID)
 	}
 	return "", nil
 }
 
-func (m *mockAssetRepo) IsManagerOfOwner(_ context.Context, requesterID, ownerID int64) (bool, error) {
+func (m *mockAssetRepo) IsManagerOfOwner(ctx context.Context, requesterID, ownerID int64) (bool, error) {
 	if m.isManagerOfOwnerFn != nil {
-		return m.isManagerOfOwnerFn(context.Background(), requesterID, ownerID)
+		return m.isManagerOfOwnerFn(ctx, requesterID, ownerID)
 	}
 	return false, nil
 }
 
-func (m *mockAssetRepo) UpdateNote(_ context.Context, note *models.Note) error {
+func (m *mockAssetRepo) UpdateNote(ctx context.Context, note *models.Note) error {
 	if m.updateNoteFn != nil {
-		return m.updateNoteFn(context.Background(), note)
+		return m.updateNoteFn(ctx, note)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) CreateNote(_ context.Context, note *models.Note) (*models.Note, error) {
+func (m *mockAssetRepo) CreateNote(ctx context.Context, note *models.Note) (*models.Note, error) {
 	if m.createNoteFn != nil {
-		return m.createNoteFn(context.Background(), note)
+		return m.createNoteFn(ctx, note)
 	}
 	note.ID = 1
 	return note, nil
 }
 
-func (m *mockAssetRepo) GetUserNotes(_ context.Context, userID int64) ([]*models.Note, error) {
+func (m *mockAssetRepo) GetUserNotes(ctx context.Context, userID int64) ([]*models.Note, error) {
 	if m.getUserNotesFn != nil {
-		return m.getUserNotesFn(context.Background(), userID)
+		return m.getUserNotesFn(ctx, userID)
 	}
 	return []*models.Note{}, nil
 }
 
-func (m *mockAssetRepo) DeleteNote(_ context.Context, noteID int64) error {
+func (m *mockAssetRepo) DeleteNote(ctx context.Context, noteID int64) error {
 	if m.deleteNoteFn != nil {
-		return m.deleteNoteFn(context.Background(), noteID)
+		return m.deleteNoteFn(ctx, noteID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) ShareNote(_ context.Context, noteShare *models.NoteShare) error {
+func (m *mockAssetRepo) ShareNote(ctx context.Context, noteShare *models.NoteShare) error {
 	if m.shareNoteFn != nil {
-		return m.shareNoteFn(context.Background(), noteShare)
+		return m.shareNoteFn(ctx, noteShare)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) RemoveNoteShare(_ context.Context, noteID, userID int64) error {
+func (m *mockAssetRepo) RemoveNoteShare(ctx context.Context, noteID, userID int64) error {
 	if m.removeNoteShareFn != nil {
-		return m.removeNoteShareFn(context.Background(), noteID, userID)
+		return m.removeNoteShareFn(ctx, noteID, userID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) GetNoteShares(_ context.Context, noteID int64) ([]*models.NoteShare, error) {
+func (m *mockAssetRepo) GetNoteShares(ctx context.Context, noteID int64) ([]*models.NoteShare, error) {
 	if m.getNoteSharesFn != nil {
-		return m.getNoteSharesFn(context.Background(), noteID)
+		return m.getNoteSharesFn(ctx, noteID)
 	}
 	return []*models.NoteShare{}, nil
 }
 
-func (m *mockAssetRepo) CreateFolder(_ context.Context, folder *models.Folder) (*models.Folder, error) {
+func (m *mockAssetRepo) CreateFolder(ctx context.Context, folder *models.Folder) (*models.Folder, error) {
 	if m.createFolderFn != nil {
-		return m.createFolderFn(context.Background(), folder)
+		return m.createFolderFn(ctx, folder)
 	}
 	folder.ID = 1
 	return folder, nil
 }
 
-func (m *mockAssetRepo) GetUserFolders(_ context.Context, userID int64) ([]*models.Folder, error) {
+func (m *mockAssetRepo) GetUserFolders(ctx context.Context, userID int64) ([]*models.Folder, error) {
 	if m.getUserFoldersFn != nil {
-		return m.getUserFoldersFn(context.Background(), userID)
+		return m.getUserFoldersFn(ctx, userID)
 	}
 	return []*models.Folder{}, nil
 }
 
-func (m *mockAssetRepo) GetFolderByID(_ context.Context, folderID int64) (*models.Folder, error) {
+func (m *mockAssetRepo) GetFolderByID(ctx context.Context, folderID int64) (*models.Folder, error) {
 	if m.getFolderByIDFn != nil {
-		return m.getFolderByIDFn(context.Background(), folderID)
+		return m.getFolderByIDFn(ctx, folderID)
 	}
 	return &models.Folder{ID: folderID}, nil
 }
 
-func (m *mockAssetRepo) DeleteFolder(_ context.Context, folderID int64) error {
+func (m *mockAssetRepo) DeleteFolder(ctx context.Context, folderID int64) error {
 	if m.deleteFolderFn != nil {
-		return m.deleteFolderFn(context.Background(), folderID)
+		return m.deleteFolderFn(ctx, folderID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) ShareFolder(_ context.Context, folderShare *models.FolderShare) error {
+func (m *mockAssetRepo) ShareFolder(ctx context.Context, folderShare *models.FolderShare) error {
 	if m.shareFolderFn != nil {
-		return m.shareFolderFn(context.Background(), folderShare)
+		return m.shareFolderFn(ctx, folderShare)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) RemoveFolderShare(_ context.Context, folderID, userID int64) error {
+func (m *mockAssetRepo) RemoveFolderShare(ctx context.Context, folderID, userID int64) error {
 	if m.removeFolderShareFn != nil {
-		return m.removeFolderShareFn(context.Background(), folderID, userID)
+		return m.removeFolderShareFn(ctx, folderID, userID)
 	}
 	return nil
 }
 
-func (m *mockAssetRepo) GetSharedNotes(_ context.Context, userID int64) ([]*models.Note, error) {
+func (m *mockAssetRepo) GetSharedNotes(ctx context.Context, userID int64) ([]*models.Note, error) {
 	if m.getSharedNotesFn != nil {
-		return m.getSharedNotesFn(context.Background(), userID)
+		return m.getSharedNotesFn(ctx, userID)
 	}
 	return []*models.Note{}, nil
 }
 
-func (m *mockAssetRepo) GetFolderShares(_ context.Context, folderID int64) ([]*models.FolderShare, error) {
+func (m *mockAssetRepo) GetFolderShares(ctx context.Context, folderID int64) ([]*models.FolderShare, error) {
 	if m.getFolderSharesFn != nil {
-		return m.getFolderSharesFn(context.Background(), folderID)
+		return m.getFolderSharesFn(ctx, folderID)
 	}
 	return []*models.FolderShare{}, nil
 }
 
-func (m *mockAssetRepo) GetManagersOfOwner(_ context.Context, ownerID int64) ([]int64, error) {
+func (m *mockAssetRepo) GetManagersOfOwner(ctx context.Context, ownerID int64) ([]int64, error) {
 	if m.getManagersOfOwnerFn != nil {
-		return m.getManagersOfOwnerFn(context.Background(), ownerID)
+		return m.getManagersOfOwnerFn(ctx, ownerID)
 	}
 	return []int64{}, nil
 }

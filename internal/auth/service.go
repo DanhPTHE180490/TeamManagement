@@ -54,6 +54,26 @@ type authServiceImpl struct {
 	repo AuthRepository
 }
 
+type contextAwareReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r *contextAwareReader) Read(p []byte) (int, error) {
+	select {
+	case <-r.ctx.Done():
+		return 0, r.ctx.Err()
+	default:
+	}
+	return r.reader.Read(p)
+}
+func newContextAwareReader(ctx context.Context, reader io.Reader) io.Reader {
+	return &contextAwareReader{
+		ctx:    ctx,
+		reader: reader,
+	}
+}
+
 // NewAuthService acts as a constructor
 func NewAuthService(repo AuthRepository) AuthService {
 	return &authServiceImpl{repo: repo}
@@ -153,7 +173,7 @@ func (s *authServiceImpl) Login(ctx context.Context, email, password string) (st
 }
 
 func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error) {
-	csvReader := csv.NewReader(reader)
+	csvReader := csv.NewReader(newContextAwareReader(ctx, reader))
 	var wg sync.WaitGroup
 	jobChan := make(chan UserImportJob)
 	resultChan := make(chan UserImportResult)

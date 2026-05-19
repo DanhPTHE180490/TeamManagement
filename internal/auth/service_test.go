@@ -15,16 +15,16 @@ import (
 )
 
 type mockAuthRepo struct {
-	createUserFn     func(*models.User) error
+	createUserFn     func(context.Context, *models.User) error
 	getUserByEmailFn func(context.Context, string) (*models.User, error)
 	createdUsers     []*models.User
 	lookedUpEmails   []string
 }
 
-func (m *mockAuthRepo) CreateUser(_ context.Context, user *models.User) error {
+func (m *mockAuthRepo) CreateUser(ctx context.Context, user *models.User) error {
 	m.createdUsers = append(m.createdUsers, user)
 	if m.createUserFn != nil {
-		return m.createUserFn(user)
+		return m.createUserFn(ctx, user)
 	}
 	user.ID = len(m.createdUsers)
 	return nil
@@ -74,7 +74,7 @@ func TestAuthService_Register(t *testing.T) {
 			password: "password123",
 			role:     "member",
 			setupRepo: func(repo *mockAuthRepo) {
-				repo.createUserFn = func(*models.User) error {
+				repo.createUserFn = func(context.Context, *models.User) error {
 					return customErrors.NewDuplicateError("email", errors.New("duplicate key"))
 				}
 			},

@@ -37,85 +37,85 @@ type mockTeamRepo struct {
 	lastUpdateRoleName string
 }
 
-func (m *mockTeamRepo) CreateTeam(_ context.Context, team *models.Team, userID int64, userRole string) (error, int64) {
+func (m *mockTeamRepo) CreateTeam(ctx context.Context, team *models.Team, userID int64, userRole string) (error, int64) {
 	m.lastCreatedTeam = team
 	m.lastCreateUserID = userID
 	m.lastCreateUserRole = userRole
 	if m.createTeamFn != nil {
-		return m.createTeamFn(context.Background(), team, userID, userRole)
+		return m.createTeamFn(ctx, team, userID, userRole)
 	}
 	return nil, 7
 }
 
-func (m *mockTeamRepo) GetTeamByID(_ context.Context, id int64) (*models.Team, error) {
+func (m *mockTeamRepo) GetTeamByID(ctx context.Context, id int64) (*models.Team, error) {
 	if m.getTeamByIDFn != nil {
-		return m.getTeamByIDFn(context.Background(), id)
+		return m.getTeamByIDFn(ctx, id)
 	}
 	return &models.Team{ID: id, Name: "team"}, nil
 }
 
-func (m *mockTeamRepo) GetTeamsByUserID(_ context.Context, userID int64) ([]*models.Team, error) {
+func (m *mockTeamRepo) GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error) {
 	if m.getTeamsByUserFn != nil {
-		return m.getTeamsByUserFn(context.Background(), userID)
+		return m.getTeamsByUserFn(ctx, userID)
 	}
 	return []*models.Team{{ID: 1, Name: "team"}}, nil
 }
 
-func (m *mockTeamRepo) UpdateTeam(_ context.Context, team *models.Team) error {
+func (m *mockTeamRepo) UpdateTeam(ctx context.Context, team *models.Team) error {
 	m.lastUpdatedTeam = team
 	if m.updateTeamFn != nil {
-		return m.updateTeamFn(context.Background(), team)
+		return m.updateTeamFn(ctx, team)
 	}
 	return nil
 }
 
-func (m *mockTeamRepo) DeleteTeam(_ context.Context, id int64) error {
+func (m *mockTeamRepo) DeleteTeam(ctx context.Context, id int64) error {
 	m.lastDeletedTeamID = id
 	if m.deleteTeamFn != nil {
-		return m.deleteTeamFn(context.Background(), id)
+		return m.deleteTeamFn(ctx, id)
 	}
 	return nil
 }
 
-func (m *mockTeamRepo) UserExists(_ context.Context, userID int64) (bool, error) {
+func (m *mockTeamRepo) UserExists(ctx context.Context, userID int64) (bool, error) {
 	if m.userExistsFn != nil {
-		return m.userExistsFn(context.Background(), userID)
+		return m.userExistsFn(ctx, userID)
 	}
 	return true, nil
 }
 
-func (m *mockTeamRepo) GetTeamRole(_ context.Context, teamID int64, userID int64) (string, error) {
+func (m *mockTeamRepo) GetTeamRole(ctx context.Context, teamID int64, userID int64) (string, error) {
 	if m.getTeamRoleFn != nil {
-		return m.getTeamRoleFn(context.Background(), teamID, userID)
+		return m.getTeamRoleFn(ctx, teamID, userID)
 	}
 	return "main_manager", nil
 }
 
-func (m *mockTeamRepo) AddMember(_ context.Context, teamID int64, userID int64, role string) error {
+func (m *mockTeamRepo) AddMember(ctx context.Context, teamID int64, userID int64, role string) error {
 	m.lastAddTeamID = teamID
 	m.lastAddUserID = userID
 	m.lastAddRole = role
 	if m.addMemberFn != nil {
-		return m.addMemberFn(context.Background(), teamID, userID, role)
+		return m.addMemberFn(ctx, teamID, userID, role)
 	}
 	return nil
 }
 
-func (m *mockTeamRepo) RemoveMember(_ context.Context, teamID int64, userID int64) error {
+func (m *mockTeamRepo) RemoveMember(ctx context.Context, teamID int64, userID int64) error {
 	m.lastRemoveTeamID = teamID
 	m.lastRemoveUserID = userID
 	if m.removeMemberFn != nil {
-		return m.removeMemberFn(context.Background(), teamID, userID)
+		return m.removeMemberFn(ctx, teamID, userID)
 	}
 	return nil
 }
 
-func (m *mockTeamRepo) UpdateMemberRole(_ context.Context, teamID int64, userID int64, newRole string) error {
+func (m *mockTeamRepo) UpdateMemberRole(ctx context.Context, teamID int64, userID int64, newRole string) error {
 	m.lastUpdateRoleTeam = teamID
 	m.lastUpdateRoleUser = userID
 	m.lastUpdateRoleName = newRole
 	if m.updateRoleFn != nil {
-		return m.updateRoleFn(context.Background(), teamID, userID, newRole)
+		return m.updateRoleFn(ctx, teamID, userID, newRole)
 	}
 	return nil
 }
