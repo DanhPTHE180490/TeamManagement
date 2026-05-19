@@ -7,5 +7,5 @@
 # JetBrains IDEs
 .idea/
 *.iml
-api
+/api
 .env
