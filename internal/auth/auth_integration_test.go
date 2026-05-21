@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"team-management/internal/auth"
-	"team-management/internal/testutil"
+	testutil "team-management/internal/utils"
 )
 
 func TestAuthRegisterAndLogin(t *testing.T) {

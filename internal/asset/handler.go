@@ -1,10 +1,12 @@
 package asset
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
-	apperrors "team-management/internal/errors"
+	"team-management/internal/models"
+	"team-management/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +17,18 @@ type AssetHandler struct {
 
 func NewAssetHandler(service AssetService) *AssetHandler {
 	return &AssetHandler{service: service}
+}
+
+func getRequesterID(c *gin.Context) (int64, bool) {
+	requesterCtx, exists := c.Get("userID")
+	if !exists {
+		return 0, false
+	}
+	userIDFloat, ok := requesterCtx.(float64)
+	if !ok {
+		return 0, false
+	}
+	return int64(userIDFloat), true
 }
 
 func (h *AssetHandler) RegisterRoutes(protectedGroup *gin.RouterGroup) {
@@ -41,32 +55,28 @@ func (h *AssetHandler) RegisterRoutes(protectedGroup *gin.RouterGroup) {
 func (h *AssetHandler) GetNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid note ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	if requesterCtx == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
 		return
 	}
-	if _, ok := requesterCtx.(float64); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	requesterID := int64(requesterCtx.(float64))
 
 	note, err := h.service.GetNoteByID(c.Request.Context(), requesterID, noteID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -81,59 +91,59 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 }
 
 func (h *AssetHandler) CreateNote(c *gin.Context) {
-	var req struct {
-		Title    string `json:"title" binding:"required"`
-		Content  string `json:"content" binding:"required"`
-		FolderID *int64 `json:"folder_id"`
-	}
+	var req models.NoteCreateRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": appErr.Message, "details": appErr.Details})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	if requesterCtx == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
 		return
 	}
-	if _, ok := requesterCtx.(float64); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	requesterID := int64(requesterCtx.(float64))
 
 	note, err := h.service.CreateNote(c.Request.Context(), requesterID, req.Title, req.Content, req.FolderID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			}
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "note created successfully", "note": note})
+	c.JSON(http.StatusCreated, gin.H{"message": "Note created successfully", "note": note})
 }
 
 func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
-	// Users can only see their own notes
 	if userID != requesterID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		c.JSON(http.StatusForbidden, gin.H{"error": utils.ErrTypeForbidden})
 		return
 	}
 
 	notes, err := h.service.GetUserNotes(c.Request.Context(), requesterID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch notes"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -143,143 +153,153 @@ func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid note ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	var req struct {
-		Title    string `json:"title" binding:"required"`
-		Content  string `json:"content" binding:"required"`
-		FolderID *int64 `json:"folder_id"`
-	}
+	var req models.NoteCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": appErr.Message, "details": appErr.Details})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	note, err := h.service.UpdateNote(c.Request.Context(), requesterID, noteID, req.Title, req.Content, req.FolderID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			}
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "note updated successfully", "note": note})
+	c.JSON(http.StatusOK, gin.H{"message": "Note updated successfully", "note": note})
 }
 
 func (h *AssetHandler) DeleteNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid note ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	err = h.service.DeleteNote(c.Request.Context(), requesterID, noteID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "note deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Note deleted successfully"})
 }
 
 func (h *AssetHandler) ShareNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid note ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	var req struct {
-		UserID     int64  `json:"user_id" binding:"required"`
-		Permission string `json:"permission" binding:"required"`
-	}
+	var req models.NoteShareRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": appErr.Message, "details": appErr.Details})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	err = h.service.ShareNote(c.Request.Context(), requesterID, noteID, req.UserID, req.Permission)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to share note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "note shared successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Note shared successfully"})
 }
 
 func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid note ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	err = h.service.RemoveNoteShare(c.Request.Context(), requesterID, noteID, userID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "share not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove share"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "share removed successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Share removed successfully"})
 }
 
 func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	notes, err := h.service.GetSharedNotes(c.Request.Context(), requesterID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch shared notes"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -287,49 +307,58 @@ func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 }
 
 func (h *AssetHandler) CreateFolder(c *gin.Context) {
-	var req struct {
-		Name string `json:"name" binding:"required"`
-	}
+	var req models.FolderCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": appErr.Message, "details": appErr.Details})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	folder, err := h.service.CreateFolder(c.Request.Context(), requesterID, req.Name)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create folder"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "folder created successfully", "folder": folder})
+	c.JSON(http.StatusCreated, gin.H{"message": "Folder created successfully", "folder": folder})
 }
 
 func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
-	// Users can only see their own folders
 	if userID != requesterID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		c.JSON(http.StatusForbidden, gin.H{"error": utils.ErrTypeForbidden})
 		return
 	}
 
 	folders, err := h.service.GetUserFolders(c.Request.Context(), requesterID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch folders"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -339,26 +368,26 @@ func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 func (h *AssetHandler) DeleteFolder(c *gin.Context) {
 	folderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid folder ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrTypeInvalidId})
 		return
 	}
 
-	requesterCtx, _ := c.Get("userID")
-	requesterID := int64(requesterCtx.(float64))
+	requesterID, ok := getRequesterID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": utils.ErrTypeUnauthorized})
+		return
+	}
 
 	err = h.service.DeleteFolder(c.Request.Context(), requesterID, folderID)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
 			return
 		}
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "folder not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete folder"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "folder deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Folder deleted successfully"})
 }

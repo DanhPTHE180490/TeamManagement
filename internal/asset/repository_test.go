@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	apperrors "team-management/internal/errors"
 	"team-management/internal/models"
+	apperrors "team-management/internal/utils"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )

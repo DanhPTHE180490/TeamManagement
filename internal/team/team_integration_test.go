@@ -6,7 +6,7 @@ import (
 
 	"team-management/internal/auth"
 	"team-management/internal/team"
-	"team-management/internal/testutil"
+	testutil "team-management/internal/utils"
 )
 
 func TestTeamCreateAndAddMember(t *testing.T) {
