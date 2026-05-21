@@ -58,7 +58,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -89,7 +93,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})

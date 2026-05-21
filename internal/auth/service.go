@@ -104,8 +104,8 @@ func (s *authServiceImpl) Register(ctx context.Context, username, email, passwor
 		return nil, apperrors.NewInternalError("Failed to process password", err)
 	}
 
-	// Enforce role rules: only allow manager and admin, default others to member
-	if role != "manager" && role != "admin" {
+	// Enforce role rules: only allow manager, default others to member
+	if role != "manager" {
 		role = "member"
 	}
 

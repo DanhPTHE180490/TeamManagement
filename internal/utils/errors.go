@@ -61,9 +61,10 @@ func FormatValidationError(err error) *AppError {
 	var details []string
 	message := "Invalid input"
 
-	if errs, ok := err.(validator.ValidationErrors); ok {
+	var validationErrs validator.ValidationErrors
+	if errors.As(err, &validationErrs) {
 		message = "Validation failed"
-		for _, e := range errs {
+		for _, e := range validationErrs {
 			details = append(details, e.Field()+" failed validation: "+e.Tag())
 		}
 	}
@@ -125,7 +126,14 @@ func NewValidationError(field string, reason string) *AppError {
 
 // NewInternalError creates an internal server error
 func NewInternalError(message string, err error) *AppError {
-	return NewError(ErrTypeInternal, message, err)
+	// Use a stable, client-safe message for internal errors to avoid leaking
+	// low-level implementation details to API clients. Preserve the original
+	// message in Details for logging/diagnostics.
+	appErr := NewError(ErrTypeInternal, "Internal server error", err)
+	if message != "" {
+		appErr.Details = []string{message}
+	}
+	return appErr
 }
 
 // NewConflictError creates a conflict error

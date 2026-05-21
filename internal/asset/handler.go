@@ -69,7 +69,11 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -105,7 +109,11 @@ func (h *AssetHandler) CreateNote(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -166,7 +174,11 @@ func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message, "details": appErr.Details})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -227,10 +239,14 @@ func (h *AssetHandler) ShareNote(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to share note"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -260,7 +276,11 @@ func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -304,7 +324,11 @@ func (h *AssetHandler) CreateFolder(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})

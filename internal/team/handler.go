@@ -96,7 +96,11 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -121,7 +125,11 @@ func (h *TeamHandler) GetTeamByID(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -148,7 +156,11 @@ func (h *TeamHandler) GetTeamsByUserID(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -196,7 +208,11 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -234,7 +250,11 @@ func (h *TeamHandler) DeleteTeam(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
@@ -282,7 +302,11 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			if appErr.Type == utils.ErrTypeInternal {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
+			} else {
+				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})

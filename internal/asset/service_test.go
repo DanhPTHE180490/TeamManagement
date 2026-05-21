@@ -560,7 +560,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			requesterID:      10,
 			noteID:           1,
 			sharedWithUserID: 20,
-			permission:       "admin",
+			permission:       "member",
 			setupRepo: func(repo *mockAssetRepo) {
 				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil

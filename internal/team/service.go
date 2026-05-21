@@ -50,9 +50,11 @@ func (s *teamService) CreateTeam(ctx context.Context, name string, userID int64,
 
 	err, teamID := s.repo.CreateTeam(ctx, team, userID, userRole)
 	if err != nil {
+		// Always wrap internal repository errors with a stable, client-safe message.
+		// Keep the detailed cause in logs only to avoid leaking low-level messages to clients.
 		if apperrors.IsErrorType(err, apperrors.ErrTypeInternal) {
 			log.Printf("Failed to create team '%s' for user %d: %v", name, userID, err)
-			return nil, err
+			return nil, apperrors.NewInternalError("Failed to create team", err)
 		}
 		log.Printf("Database error creating team '%s' for user %d: %v", name, userID, err)
 		return nil, apperrors.NewInternalError("Failed to create team", err)

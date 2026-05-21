@@ -158,7 +158,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			body:         `{"email":"alice@example.com","password":"password123"}`,
 			service:      &mockAuthService{loginErr: customErrors.NewInternalError("Failed to login", stdErrors.New("db down"))},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "Failed to login",
+			expectedBody: "Internal Server Error",
 		},
 		{
 			name:         "invalid json",
