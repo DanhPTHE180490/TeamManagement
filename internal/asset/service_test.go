@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	apperrors "team-management/internal/errors"
 	"team-management/internal/models"
+	apperrors "team-management/internal/utils"
 )
 
 type mockAssetRepo struct {

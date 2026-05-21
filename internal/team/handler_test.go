@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	customErrors "team-management/internal/errors"
 	"team-management/internal/models"
+	apperrors "team-management/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -189,7 +189,7 @@ func TestTeamHandler_CreateTeam(t *testing.T) {
 			userRole:     "manager",
 			service:      &mockTeamService{},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: InvalidInput,
+			expectedBody: "Validation failed",
 			callCount:    0,
 		},
 	}
@@ -219,7 +219,7 @@ func TestTeamHandler_CreateTeam(t *testing.T) {
 func TestTeamHandler_GetTeamByID(t *testing.T) {
 	service := &mockTeamService{getTeamByIDFn: func(_ context.Context, id int64) (*models.Team, error) {
 		if id == 99 {
-			return nil, customErrors.NewNotFoundError("team")
+			return nil, apperrors.NewNotFoundError("Team")
 		}
 		return &models.Team{ID: id, Name: "platform"}, nil
 	}}
@@ -274,7 +274,7 @@ func TestTeamHandler_UpdateMemberRole_UsesCorrectServiceMethod(t *testing.T) {
 
 func TestTeamHandler_AddMemberToTeam_Conflict(t *testing.T) {
 	service := &mockTeamService{addMemberFn: func(_ context.Context, _ int64, _ int64, _ int64) error {
-		return customErrors.NewConflictError("user is already a member of this team", errors.New("duplicate"))
+		return apperrors.NewConflictError("user is already a member of this team", errors.New("duplicate"))
 	}}
 	router := newTeamRouterWithContext(service, float64(1), "manager")
 

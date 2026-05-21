@@ -3,8 +3,8 @@ package asset
 import (
 	"context"
 	"database/sql"
-	apperrors "team-management/internal/errors"
 	"team-management/internal/models"
+	apperrors "team-management/internal/utils"
 	"time"
 )
 
@@ -80,7 +80,7 @@ func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note)
 func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([]*models.Note, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE owner_id = ?", userID)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewInternalError("failed to fetch user notes", err)
 	}
 	defer rows.Close()
 
@@ -89,7 +89,7 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 		var note models.Note
 		var content sql.NullString
 		if err := rows.Scan(&note.ID, &note.FolderID, &note.OwnerID, &note.Title, &content, &note.CreatedAt, &note.UpdatedAt); err != nil {
-			return nil, err
+			return nil, apperrors.NewInternalError("failed to scan user note", err)
 		}
 		if content.Valid {
 			note.Content = content.String
@@ -97,7 +97,11 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 		notes = append(notes, &note)
 	}
 
-	return notes, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, apperrors.NewInternalError("failed to iterate user notes", err)
+	}
+
+	return notes, nil
 }
 
 func (r *assetRepositoryImpl) DeleteNote(ctx context.Context, noteID int64) error {

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"log"
 	"strings"
-	"team-management/internal/errors"
 	"team-management/internal/models"
+	apperrors "team-management/internal/utils"
 )
 
 type AuthRepository interface {
@@ -33,16 +33,16 @@ func (r *authRepositoryImpl) CreateUser(ctx context.Context, user *models.User) 
 		// Handle duplicate key error
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
 			log.Printf("Duplicate email attempted: %s", user.Email)
-			return errors.NewDuplicateError("email", err)
+			return apperrors.NewDuplicateError("email", err)
 		}
 		log.Printf("Database error creating user %s: %v", user.Email, err)
-		return errors.NewInternalError("failed to create user in database", err)
+		return apperrors.NewInternalError("failed to create user in database", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
 		log.Printf("Failed to get inserted user ID for email %s: %v", user.Email, err)
-		return errors.NewInternalError("failed to retrieve user ID", err)
+		return apperrors.NewInternalError("failed to retrieve user ID", err)
 	}
 	user.ID = int(id)
 
@@ -68,10 +68,10 @@ func (r *authRepositoryImpl) GetUserByEmail(ctx context.Context, email string) (
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("User not found with email: %s", email)
-			return nil, errors.NewNotFoundError("user")
+			return nil, apperrors.NewNotFoundError("user")
 		}
 		log.Printf("Database error retrieving user by email %s: %v", email, err)
-		return nil, errors.NewInternalError("failed to retrieve user", err)
+		return nil, apperrors.NewInternalError("failed to retrieve user", err)
 	}
 
 	return user, nil

@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
-	customErrors "team-management/internal/errors"
+	"team-management/internal/models"
+	"team-management/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,15 +41,14 @@ func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
 
 // Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
 func (h *AuthHandler) Register(c *gin.Context) {
-	var req struct {
-		Username string `json:"username" binding:"required,max=50"`
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required,min=6"`
-		Role     string `json:"role" binding:"required,oneof=manager member admin"`
-	}
+	var req models.UserRegisterRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   appErr.Message,
+			"details": appErr.Details,
+		})
 		return
 	}
 
@@ -55,15 +56,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, err := h.service.Register(ctx, req.Username, req.Email, req.Password, req.Role)
 	if err != nil {
-		if customErrors.IsErrorType(err, customErrors.ErrTypeDuplicate) {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
 			return
 		}
-		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -75,24 +73,26 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login expects {"email": "...", "password": "..."}
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required"`
-	}
+	var req models.UserLoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		appErr := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   appErr.Message,
+			"details": appErr.Details,
+		})
 		return
 	}
 
 	// Call the Service Layer to verify and get the JWT
 	token, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) || customErrors.IsErrorType(err, customErrors.ErrTypeUnauthorized) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
@@ -124,6 +124,11 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "file too large: maximum upload size exceeded"})
 			return
 		}
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to get file from request: " + err.Error()})
 		return
 	}
@@ -137,7 +142,12 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 
 	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), file)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "processing failed: " + err.Error()})
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
 		return
 	}
 
