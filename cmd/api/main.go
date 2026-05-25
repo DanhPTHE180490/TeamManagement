@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"team-management/internal/asset"
+	"team-management/internal/audit"
 	"team-management/internal/auth"
 	"team-management/internal/cache"
 	"team-management/internal/database"
@@ -48,16 +49,19 @@ func main() {
 	}
 
 	authRepo := auth.NewAuthRepository(db)
-	authService := auth.NewAuthService(authRepo)
+	authService := auth.NewAuthService(authRepo, redisClient)
 	authHandler := auth.NewAuthHandler(authService)
 
 	teamRepo := team.NewTeamRepository(db, redisClient)
-	teamService := team.NewTeamService(teamRepo)
+	teamService := team.NewTeamService(teamRepo, redisClient)
 	teamHandler := team.NewTeamHandler(teamService)
 
 	assetRepo := asset.NewAssetRepository(db, redisClient)
-	assetService := asset.NewAssetService(assetRepo)
+	assetService := asset.NewAssetService(assetRepo, redisClient)
 	assetHandler := asset.NewAssetHandler(assetService)
+
+	auditRepo := audit.NewAuditRepository(db)
+	go audit.StartAuditWorker(context.Background(), redisClient, auditRepo)
 
 	router := gin.Default()
 

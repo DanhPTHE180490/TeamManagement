@@ -206,7 +206,7 @@ func TestAssetService_CreateNote(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &mockAssetRepo{}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			result, err := service.CreateNote(context.Background(), tc.requesterID, tc.title, tc.content, tc.folderID)
 			if tc.wantErr && err == nil {
@@ -317,7 +317,7 @@ func TestAssetService_GetNoteByID(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			note, err := service.GetNoteByID(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
@@ -422,7 +422,7 @@ func TestAssetService_UpdateNote(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			note, err := service.UpdateNote(context.Background(), tc.requesterID, tc.noteID, tc.title, tc.content, tc.folderID)
 			if tc.wantErr {
@@ -490,7 +490,7 @@ func TestAssetService_DeleteNote(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			err := service.DeleteNote(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
@@ -591,7 +591,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			err := service.ShareNote(context.Background(), tc.requesterID, tc.noteID, tc.sharedWithUserID, tc.permission)
 			if tc.wantErr {
@@ -623,7 +623,7 @@ func TestAssetService_GetUserNotes(t *testing.T) {
 		},
 	}
 
-	service := NewAssetService(repo)
+	service := NewAssetService(repo, nil)
 	notes, err := service.GetUserNotes(context.Background(), 10)
 
 	if err != nil {
@@ -662,7 +662,7 @@ func TestAssetService_CreateFolder(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			folder, err := service.CreateFolder(context.Background(), tc.requesterID, tc.folderName)
 			if tc.wantErr && err == nil {
@@ -723,7 +723,7 @@ func TestAssetService_DeleteFolder(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			err := service.DeleteFolder(context.Background(), tc.requesterID, tc.folderID)
 			if tc.wantErr {
@@ -791,7 +791,7 @@ func TestAssetService_RemoveNoteShare(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			err := service.RemoveNoteShare(context.Background(), tc.requesterID, tc.noteID, tc.sharedWithUserID)
 			if tc.wantErr {
@@ -862,7 +862,7 @@ func TestAssetService_GetNoteShares(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			shares, err := service.GetNoteShares(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {
@@ -947,7 +947,7 @@ func TestAssetService_GetNoteAccess(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAssetService(repo)
+			service := NewAssetService(repo, nil)
 
 			access, err := service.GetNoteAccess(context.Background(), tc.requesterID, tc.noteID)
 			if tc.wantErr {

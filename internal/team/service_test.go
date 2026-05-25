@@ -168,7 +168,7 @@ func TestTeamService_CreateTeam(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(repo)
 			}
-			service := NewTeamService(repo)
+			service := NewTeamService(repo, nil)
 
 			team, err := service.CreateTeam(context.Background(), tc.teamName, 11, tc.role)
 			if tc.wantErr {
@@ -205,7 +205,7 @@ func TestTeamService_UpdateAndDeletePermissions(t *testing.T) {
 			return "main_manager", nil
 		},
 	}
-	service := NewTeamService(repo)
+	service := NewTeamService(repo, nil)
 
 	if _, err := service.UpdateTeam(context.Background(), 5, "New Name", 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden update for member, got %v", err)
@@ -261,7 +261,7 @@ func TestTeamService_MemberManagement(t *testing.T) {
 			return true, nil
 		},
 	}
-	service := NewTeamService(repo)
+	service := NewTeamService(repo, nil)
 
 	if err := service.AddMemberToTeam(context.Background(), 10, 20, 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden add by member, got %v", err)

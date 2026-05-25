@@ -13,7 +13,10 @@ import (
 	apperrors "team-management/internal/utils"
 	"time"
 
+	"team-management/internal/audit"
+
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,11 +50,12 @@ type BulkImportSummary struct {
 type AuthService interface {
 	Register(ctx context.Context, username, email, password, role string) (*models.User, error)
 	Login(ctx context.Context, email, password string) (string, error)
-	BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error)
+	BulkImportUsersFromCSV(ctx context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error)
 }
 
 type authServiceImpl struct {
-	repo AuthRepository
+	repo        AuthRepository
+	redisClient *redis.Client
 }
 
 type contextAwareReader struct {
@@ -75,8 +79,8 @@ func newContextAwareReader(ctx context.Context, reader io.Reader) io.Reader {
 }
 
 // NewAuthService acts as a constructor
-func NewAuthService(repo AuthRepository) AuthService {
-	return &authServiceImpl{repo: repo}
+func NewAuthService(repo AuthRepository, redisClient *redis.Client) AuthService {
+	return &authServiceImpl{repo: repo, redisClient: redisClient}
 }
 
 func (s *authServiceImpl) Register(ctx context.Context, username, email, password, role string) (*models.User, error) {
@@ -127,6 +131,18 @@ func (s *authServiceImpl) Register(ctx context.Context, username, email, passwor
 		return nil, apperrors.NewInternalError("Failed to create user", err)
 	}
 
+	userID := int64(user.ID)
+	entityType := "user"
+
+	audit.PublishEvent(
+		s.redisClient,
+		&userID,
+		"USER_REGISTERED",
+		entityType,
+		&userID,
+		map[string]any{"role": role, "email": email},
+	)
+
 	log.Printf("User registered successfully: %s (email: %s, role: %s)", username, email, role)
 	return user, nil
 }
@@ -168,11 +184,23 @@ func (s *authServiceImpl) Login(ctx context.Context, email, password string) (st
 		return "", apperrors.NewInternalError("Failed to generate authentication token", err)
 	}
 
+	userID := int64(user.ID)
+	entityType := "user"
+
+	audit.PublishEvent(
+		s.redisClient,
+		&userID,
+		"USER_LOGGED_IN",
+		entityType,
+		&userID,
+		map[string]any{"email": email},
+	)
+
 	log.Printf("User logged in successfully: %s (ID: %d)", email, user.ID)
 	return tokenString, nil
 }
 
-func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error) {
+func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error) {
 	csvReader := csv.NewReader(newContextAwareReader(ctx, reader))
 	var wg sync.WaitGroup
 	jobChan := make(chan UserImportJob)
@@ -246,6 +274,19 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.
 			summary.Errors = append(summary.Errors, fmt.Sprintf("Row %d: %s", result.RowNumber, result.ErrorMsg))
 		}
 	}
+
+	audit.PublishEvent(
+		s.redisClient,
+		&requesterID,
+		"BULK_IMPORT_COMPLETED",
+		"system",
+		nil,
+		map[string]any{
+			"total_processed": summary.TotalProcessed,
+			"succeeded":       summary.Succeeded,
+			"failed":          summary.Failed,
+		},
+	)
 
 	log.Printf("Bulk import completed: %d processed, %d succeeded, %d failed", summary.TotalProcessed, summary.Succeeded, summary.Failed)
 	return summary, nil

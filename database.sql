@@ -105,7 +105,21 @@ CREATE TABLE IF NOT EXISTS note_shares (
 );
 
 -- ==========================================
--- 8. INDEXES (For Query Optimization)
+-- 8. AUDIT_LOGS TABLE (For tracking user actions)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NULL,
+    action VARCHAR(255) NOT NULL,
+    entity_type VARCHAR(100) NULL,
+    entity_id BIGINT NULL,
+    details JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ==========================================
+-- 9. INDEXES (For Query Optimization)
 -- ==========================================
 -- Speeds up login checks
 CREATE INDEX idx_users_email ON users(email);

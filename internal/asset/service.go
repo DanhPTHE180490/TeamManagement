@@ -5,6 +5,10 @@ import (
 	"team-management/internal/models"
 	apperrors "team-management/internal/utils"
 	"time"
+
+	"team-management/internal/audit"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type AssetService interface {
@@ -24,11 +28,12 @@ type AssetService interface {
 }
 
 type assetServiceImpl struct {
-	repo AssetRepository
+	repo        AssetRepository
+	redisClient *redis.Client
 }
 
-func NewAssetService(repo AssetRepository) AssetService {
-	return &assetServiceImpl{repo: repo}
+func NewAssetService(repo AssetRepository, redisClient *redis.Client) AssetService {
+	return &assetServiceImpl{repo: repo, redisClient: redisClient}
 }
 
 func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID int64) (*models.Note, error) {
@@ -135,6 +140,8 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 		return note, nil
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "UNAUTHORIZED_NOTE_UPDATE_ATTEMPT", "note", &noteID, nil)
+
 	return nil, apperrors.NewForbiddenError("you do not have permission to edit this note")
 }
 
@@ -166,6 +173,8 @@ func (s *assetServiceImpl) DeleteNote(ctx context.Context, requesterID, noteID i
 		return apperrors.NewForbiddenError("only owner can delete this note")
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_DELETED", "note", &noteID, nil)
+
 	return s.repo.DeleteNote(ctx, noteID)
 }
 
@@ -183,6 +192,8 @@ func (s *assetServiceImpl) ShareNote(ctx context.Context, requesterID, noteID, s
 	if permission != "read" && permission != "write" {
 		return apperrors.NewValidationError("permission", "invalid permission level")
 	}
+
+	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_SHARED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID, "permission": permission})
 
 	return s.repo.ShareNote(ctx, &models.NoteShare{
 		NoteID:           noteID,
@@ -202,6 +213,7 @@ func (s *assetServiceImpl) RemoveNoteShare(ctx context.Context, requesterID, not
 		return apperrors.NewForbiddenError("only owner can modify shares")
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_SHARE_REMOVED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID})
 	return s.repo.RemoveNoteShare(ctx, noteID, sharedWithUserID)
 }
 
@@ -224,6 +236,9 @@ func (s *assetServiceImpl) CreateFolder(ctx context.Context, requesterID int64, 
 		OwnerID: requesterID,
 		Name:    name,
 	}
+
+	audit.PublishEvent(s.redisClient, &requesterID, "FOLDER_CREATED", "folder", nil, map[string]any{"folder_name": name})
+
 	return s.repo.CreateFolder(ctx, folder)
 }
 
@@ -246,6 +261,7 @@ func (s *assetServiceImpl) DeleteFolder(ctx context.Context, requesterID, folder
 		return apperrors.NewForbiddenError("only owner can delete this folder")
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "FOLDER_DELETED", "folder", &folderID, nil)
 	return s.repo.DeleteFolder(ctx, folderID)
 }
 

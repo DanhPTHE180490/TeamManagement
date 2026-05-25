@@ -40,7 +40,7 @@ func (m *mockAuthService) Login(_ context.Context, email, password string) (stri
 	return m.loginToken, m.loginErr
 }
 
-func (m *mockAuthService) BulkImportUsersFromCSV(_ context.Context, reader io.Reader) (*BulkImportSummary, error) {
+func (m *mockAuthService) BulkImportUsersFromCSV(_ context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error) {
 	m.bulkCalled = true
 	data, _ := io.ReadAll(reader)
 	m.bulkInput = string(data)

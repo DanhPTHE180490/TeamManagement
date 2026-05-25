@@ -23,7 +23,7 @@ func TestAssetCreateShareAndAccess(t *testing.T) {
 	defer redisClient.Close()
 
 	authRepo := auth.NewAuthRepository(db)
-	authSvc := auth.NewAuthService(authRepo)
+	authSvc := auth.NewAuthService(authRepo, redisClient)
 
 	owner, err := authSvc.Register(context.Background(), "asset-owner", "asset-owner@example.com", "password123", "member")
 	if err != nil {
@@ -35,7 +35,7 @@ func TestAssetCreateShareAndAccess(t *testing.T) {
 	}
 
 	assetRepo := asset.NewAssetRepository(db, redisClient)
-	assetSvc := asset.NewAssetService(assetRepo)
+	assetSvc := asset.NewAssetService(assetRepo, redisClient)
 
 	folder, err := assetSvc.CreateFolder(context.Background(), int64(owner.ID), "My Folder")
 	if err != nil {

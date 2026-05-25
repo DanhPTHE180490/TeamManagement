@@ -16,8 +16,14 @@ func TestTeamCreateAndAddMember(t *testing.T) {
 	db := testutil.InitAndResetDB(t)
 	defer db.Close()
 
+	miniRedis := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: miniRedis.Addr(),
+	})
+	defer redisClient.Close()
+
 	authRepo := auth.NewAuthRepository(db)
-	authSvc := auth.NewAuthService(authRepo)
+	authSvc := auth.NewAuthService(authRepo, redisClient)
 
 	// create manager and member
 	mgr, err := authSvc.Register(context.Background(), "manager-itest", "mgr-itest@example.com", "password123", "manager")
@@ -29,14 +35,8 @@ func TestTeamCreateAndAddMember(t *testing.T) {
 		t.Fatalf("failed to register member: %v", err)
 	}
 
-	miniRedis := miniredis.RunT(t)
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: miniRedis.Addr(),
-	})
-	defer redisClient.Close()
-
 	teamRepo := team.NewTeamRepository(db, redisClient)
-	teamSvc := team.NewTeamService(teamRepo)
+	teamSvc := team.NewTeamService(teamRepo, redisClient)
 
 	created, err := teamSvc.CreateTeam(context.Background(), "Integration Team", int64(mgr.ID), mgr.SystemRole)
 	if err != nil {

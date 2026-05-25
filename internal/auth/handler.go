@@ -124,6 +124,13 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 		return
 	}
 
+	var requesterID int64
+	if userIDCtx, ok := c.Get("userID"); ok {
+		if floatID, isFloat := userIDCtx.(float64); isFloat {
+			requesterID = int64(floatID)
+		}
+	}
+
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBulkImportUploadBytes)
 
 	fileHeader, err := c.FormFile("file")
@@ -148,7 +155,7 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 	}
 	defer file.Close()
 
-	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), file)
+	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), requesterID, file)
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {

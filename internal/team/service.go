@@ -6,6 +6,10 @@ import (
 	"team-management/internal/models"
 	apperrors "team-management/internal/utils"
 	"time"
+
+	"team-management/internal/audit"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type TeamService interface {
@@ -20,11 +24,12 @@ type TeamService interface {
 }
 
 type teamService struct {
-	repo TeamRepository
+	repo        TeamRepository
+	redisClient *redis.Client
 }
 
-func NewTeamService(repo TeamRepository) TeamService {
-	return &teamService{repo: repo}
+func NewTeamService(repo TeamRepository, redisClient *redis.Client) TeamService {
+	return &teamService{repo: repo, redisClient: redisClient}
 }
 
 func (s *teamService) CreateTeam(ctx context.Context, name string, userID int64, userRole string) (*models.Team, error) {
@@ -61,6 +66,9 @@ func (s *teamService) CreateTeam(ctx context.Context, name string, userID int64,
 	}
 
 	team.ID = teamID
+
+	audit.PublishEvent(s.redisClient, &userID, "TEAM_CREATED", "team", &teamID, map[string]any{"team_name": name})
+
 	log.Printf("Team created successfully: '%s' (ID: %d) by user %d", name, teamID, userID)
 	return team, nil
 }
@@ -145,6 +153,7 @@ func (s *teamService) UpdateTeam(ctx context.Context, id int64, name string, req
 		return nil, apperrors.NewInternalError("Failed to update team", err)
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "TEAM_UPDATED", "team", &id, map[string]any{"team_name": name})
 	log.Printf("Team %d updated successfully by user %d: new name '%s'", id, requesterID, name)
 	return team, nil
 }
@@ -191,6 +200,7 @@ func (s *teamService) DeleteTeam(ctx context.Context, id int64, requesterID int6
 		return apperrors.NewInternalError("Failed to delete team", err)
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "TEAM_DELETED", "team", &id, nil)
 	log.Printf("Team %d deleted successfully by main manager %d", id, requesterID)
 	return nil
 }
@@ -258,6 +268,7 @@ func (s *teamService) AddMemberToTeam(ctx context.Context, teamID int64, targetI
 	}
 
 	log.Printf("User %d added to team %d by manager %d", targetID, teamID, requesterID)
+	audit.PublishEvent(s.redisClient, &requesterID, "TEAM_MEMBER_ADDED", "team", &teamID, map[string]any{"user_id": targetID})
 	return nil
 }
 
@@ -307,6 +318,7 @@ func (s *teamService) RemoveMemberFromTeam(ctx context.Context, teamID int64, ta
 	}
 
 	log.Printf("User %d removed from team %d by manager %d", targetID, teamID, requesterID)
+	audit.PublishEvent(s.redisClient, &requesterID, "TEAM_MEMBER_REMOVED", "team", &teamID, map[string]any{"user_id": targetID})
 	return nil
 }
 
@@ -375,6 +387,7 @@ func (s *teamService) UpdateMemberRole(ctx context.Context, teamID int64, target
 		return apperrors.NewInternalError("Failed to update member role", err)
 	}
 
+	audit.PublishEvent(s.redisClient, &requesterID, "TEAM_MEMBER_ROLE_UPDATED", "team", &teamID, map[string]any{"user_id": targetID, "new_role": newRole})
 	log.Printf("User %d role in team %d changed to '%s' by main manager %d", targetID, teamID, newRole, requesterID)
 	return nil
 }
