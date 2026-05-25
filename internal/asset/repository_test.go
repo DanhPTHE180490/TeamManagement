@@ -11,6 +11,7 @@ import (
 	apperrors "team-management/internal/utils"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/jmoiron/sqlx"
 )
 
 func TestAssetRepository_GetNoteByID(t *testing.T) {
@@ -59,14 +60,15 @@ func TestAssetRepository_GetNoteByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			note, err := repo.GetNoteByID(context.Background(), tc.noteID)
 			if tc.wantErr {
@@ -118,14 +120,15 @@ func TestAssetRepository_CreateNote(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			result, err := repo.CreateNote(context.Background(), tc.note)
 			if tc.wantErr {
@@ -182,14 +185,15 @@ func TestAssetRepository_GetUserNotes(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			notes, err := repo.GetUserNotes(context.Background(), tc.userID)
 			if tc.wantErr {
@@ -238,14 +242,15 @@ func TestAssetRepository_DeleteNote(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			err = repo.DeleteNote(context.Background(), tc.noteID)
 			if tc.wantErr && err == nil {
@@ -287,14 +292,15 @@ func TestAssetRepository_ShareNote(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			err = repo.ShareNote(context.Background(), tc.share)
 			if tc.wantErr && err == nil {
@@ -341,14 +347,15 @@ func TestAssetRepository_GetNoteShares(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			shares, err := repo.GetNoteShares(context.Background(), tc.noteID)
 			if tc.wantErr && err == nil {
@@ -384,14 +391,15 @@ func TestAssetRepository_CreateFolder(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			result, err := repo.CreateFolder(context.Background(), tc.folder)
 			if tc.wantErr && err == nil {
@@ -441,14 +449,15 @@ func TestAssetRepository_GetUserFolders(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			folders, err := repo.GetUserFolders(context.Background(), tc.userID)
 			if tc.wantErr && err == nil {
@@ -499,14 +508,15 @@ func TestAssetRepository_GetFolderByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			folder, err := repo.GetFolderByID(context.Background(), tc.folderID)
 			if tc.wantErr {
@@ -564,14 +574,15 @@ func TestAssetRepository_IsManagerOfOwner(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			result, err := repo.IsManagerOfOwner(context.Background(), tc.requesterID, tc.ownerID)
 			if tc.wantErr && err == nil {
@@ -616,14 +627,15 @@ func TestAssetRepository_GetShareLevel(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
+			sqlDB, mock, err := sqlmock.New()
 			if err != nil {
 				t.Fatalf("error creating mock db: %v", err)
 			}
-			defer db.Close()
+			xdb := sqlx.NewDb(sqlDB, "sqlmock")
+			defer xdb.Close()
 
 			tc.setupDB(mock)
-			repo := &assetRepositoryImpl{db: db}
+			repo := &assetRepositoryImpl{db: xdb}
 
 			level, err := repo.GetFolderShareLevel(context.Background(), 1, 20)
 			if tc.wantErr && err == nil {

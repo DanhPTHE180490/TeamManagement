@@ -1,29 +1,24 @@
 package database
 
 import (
-	"database/sql"
 	"log"
 	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 // InitDB opens a connection pool to MySQL
-func InitDB() *sql.DB {
+func InitDB() *sqlx.DB {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
 		dsn = os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") + "@tcp(127.0.0.1:3306)/" + os.Getenv("DB_NAME") + "?parseTime=true"
 		log.Println("Warning: DB_DSN environment variable not found. Using local fallback.")
 	}
-
-	db, err := sql.Open("mysql", dsn)
+	// Connect does both sqlx.Connect() AND db.Ping()
+	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
-	}
-
-	// Test the connection
-	if err := db.Ping(); err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 

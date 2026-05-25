@@ -7,6 +7,8 @@ import (
 	"strings"
 	"team-management/internal/models"
 	apperrors "team-management/internal/utils"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type AuthRepository interface {
@@ -15,11 +17,11 @@ type AuthRepository interface {
 }
 
 type authRepositoryImpl struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewAuthRepository acts as a constructor
-func NewAuthRepository(db *sql.DB) AuthRepository {
+func NewAuthRepository(db *sqlx.DB) AuthRepository {
 	return &authRepositoryImpl{db: db}
 }
 

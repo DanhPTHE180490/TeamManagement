@@ -1,17 +1,18 @@
 package utils
 
 import (
-	"database/sql"
 	"os"
 	"strings"
 	"testing"
 
 	"team-management/internal/database"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // InitAndResetDB initializes the DB connection using environment fallbacks
 // and resets tables used by integration tests. Callers should `defer db.Close()`.
-func InitAndResetDB(t *testing.T) *sql.DB {
+func InitAndResetDB(t *testing.T) *sqlx.DB {
 	if os.Getenv("DB_DSN") == "" {
 		os.Setenv("DB_DSN", "root:password_1234@tcp(127.0.0.1:3307)/microservices_capstone?parseTime=true")
 	}
