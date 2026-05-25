@@ -17,7 +17,22 @@ services:
       timeout: 10s
       retries: 5
 
-  # 2. The Go API Service
+  # 2. The Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: team_management_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. The Go API Service
   api:
     build: .
     container_name: team_management_api
@@ -29,6 +44,8 @@ services:
       - DB_DSN=root:${DB_PASSWORD}@tcp(db:3306)/${DB_NAME}?parseTime=true
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     stop_signal: SIGINT
     stop_grace_period: 15s

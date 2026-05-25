@@ -3,12 +3,16 @@ package team
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"team-management/internal/models"
 	apperrors "team-management/internal/utils"
+	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type TeamRepository interface {
@@ -25,11 +29,41 @@ type TeamRepository interface {
 }
 
 type teamRepository struct {
-	db *sqlx.DB
+	db    *sqlx.DB
+	redis *redis.Client
 }
 
-func NewTeamRepository(db *sqlx.DB) TeamRepository {
-	return &teamRepository{db: db}
+func NewTeamRepository(db *sqlx.DB, redis *redis.Client) TeamRepository {
+	return &teamRepository{
+		db:    db,
+		redis: redis,
+	}
+}
+
+func (r *teamRepository) cacheSet(ctx context.Context, key string, val interface{}, ttl time.Duration) {
+	if r == nil || r.redis == nil {
+		return
+	}
+	b, err := json.Marshal(val)
+	if err != nil {
+		log.Printf("CACHE MARSHAL ERROR: key=%s err=%v", key, err)
+		return
+	}
+	if err := r.redis.Set(ctx, key, b, ttl).Err(); err != nil {
+		log.Printf("CACHE SET ERROR: key=%s err=%v", key, err)
+	}
+}
+
+func (r *teamRepository) cacheDel(ctx context.Context, keys ...string) {
+	if r == nil || r.redis == nil {
+		return
+	}
+	if len(keys) == 0 {
+		return
+	}
+	if err := r.redis.Del(ctx, keys...).Err(); err != nil {
+		log.Printf("CACHE DEL ERROR: keys=%v err=%v", keys, err)
+	}
 }
 
 func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, userID int64, userRole string) (error, int64) {
@@ -68,13 +102,30 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 		return apperrors.NewInternalError("failed to commit database transaction", err), 0
 	}
 
+	r.cacheDel(ctx, fmt.Sprintf("team:%d", teamID), fmt.Sprintf("teams:user:%d", userID))
+
 	return nil, teamID
 }
 
 func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Team, error) {
+	cacheKey := fmt.Sprintf("team:%d", id)
+	var cachedData string
+	var err error
+	if r != nil && r.redis != nil {
+		cachedData, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
+	if err == nil {
+		var team models.Team
+		if err := json.Unmarshal([]byte(cachedData), &team); err == nil {
+			return &team, nil
+		}
+	}
+
 	team := &models.Team{}
 	query := "SELECT id, name, created_at, updated_at FROM teams WHERE id = ?"
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt)
+	err = r.db.QueryRowContext(ctx, query, id).Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("Team not found with ID: %d", id)
@@ -111,10 +162,29 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 		log.Printf("Error iterating members for team %d: %v", id, err)
 		return nil, apperrors.NewInternalError("failed to retrieve team members", err)
 	}
+
+	r.cacheSet(ctx, cacheKey, team, 15*time.Minute)
+	log.Printf("CACHE SET: Saved team %d to Redis", id)
+
 	return team, nil
 }
 
 func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error) {
+	cacheKey := fmt.Sprintf("teams:user:%d", userID)
+	var cachedData string
+	var err error
+	if r != nil && r.redis != nil {
+		cachedData, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
+	if err == nil {
+		var teams []*models.Team
+		if err := json.Unmarshal([]byte(cachedData), &teams); err == nil {
+			return teams, nil
+		}
+	}
+
 	query := `
 		SELECT t.id, t.name, t.created_at, t.updated_at
 		FROM teams t
@@ -142,6 +212,9 @@ func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]
 		return nil, apperrors.NewInternalError("failed to retrieve teams", err)
 	}
 
+	r.cacheSet(ctx, cacheKey, teams, 15*time.Minute)
+	log.Printf("CACHE SET: Saved teams for user %d to Redis", userID)
+
 	return teams, nil
 }
 
@@ -164,6 +237,9 @@ func (r *teamRepository) UpdateTeam(ctx context.Context, team *models.Team) erro
 		return apperrors.NewNotFoundError("team")
 	}
 
+	cacheKey := fmt.Sprintf("team:%d", team.ID)
+	r.cacheDel(ctx, cacheKey)
+
 	return nil
 }
 
@@ -185,6 +261,9 @@ func (r *teamRepository) DeleteTeam(ctx context.Context, id int64) error {
 		log.Printf("No team found with ID %d to delete", id)
 		return apperrors.NewNotFoundError("team")
 	}
+
+	cacheKey := fmt.Sprintf("team:%d", id)
+	r.cacheDel(ctx, cacheKey)
 
 	return nil
 }
@@ -232,6 +311,8 @@ func (r *teamRepository) AddMember(ctx context.Context, teamID int64, userID int
 		log.Printf("Database error adding user %d to team %d: %v", userID, teamID, err)
 		return apperrors.NewInternalError("failed to add member to team", err)
 	}
+
+	r.cacheDel(ctx, fmt.Sprintf("team:%d", teamID), fmt.Sprintf("teams:user:%d", userID))
 	return nil
 }
 
@@ -254,6 +335,10 @@ func (r *teamRepository) RemoveMember(ctx context.Context, teamID int64, userID 
 		return apperrors.NewNotFoundError("user is not a member of this team")
 	}
 
+	cacheTeam := fmt.Sprintf("team:%d", teamID)
+	cacheUser := fmt.Sprintf("teams:user:%d", userID)
+	r.cacheDel(ctx, cacheTeam, cacheUser)
+
 	return nil
 }
 
@@ -275,6 +360,9 @@ func (r *teamRepository) UpdateMemberRole(ctx context.Context, teamID int64, use
 		log.Printf("User %d is not a member of team %d", userID, teamID)
 		return apperrors.NewNotFoundError("user is not a member of this team")
 	}
+
+	cacheKey := fmt.Sprintf("team:%d", teamID)
+	r.cacheDel(ctx, cacheKey, fmt.Sprintf("teams:user:%d", userID))
 
 	return nil
 }

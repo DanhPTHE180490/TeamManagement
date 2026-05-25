@@ -7,6 +7,9 @@ import (
 	"team-management/internal/auth"
 	"team-management/internal/team"
 	testutil "team-management/internal/utils"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestTeamCreateAndAddMember(t *testing.T) {
@@ -26,7 +29,13 @@ func TestTeamCreateAndAddMember(t *testing.T) {
 		t.Fatalf("failed to register member: %v", err)
 	}
 
-	teamRepo := team.NewTeamRepository(db)
+	miniRedis := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: miniRedis.Addr(),
+	})
+	defer redisClient.Close()
+
+	teamRepo := team.NewTeamRepository(db, redisClient)
 	teamSvc := team.NewTeamService(teamRepo)
 
 	created, err := teamSvc.CreateTeam(context.Background(), "Integration Team", int64(mgr.ID), mgr.SystemRole)
