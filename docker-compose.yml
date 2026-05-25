@@ -32,3 +32,15 @@ services:
         condition: service_healthy
     stop_signal: SIGINT
     stop_grace_period: 15s
+
+  # 3. The Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: capstone_redis
+    ports:
+      - "6379:6379"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started

@@ -16,6 +16,8 @@ import (
 	"team-management/internal/middleware"
 	"team-management/internal/team"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,15 +25,21 @@ func main() {
 	db := database.InitDB()
 	defer db.Close()
 
+	// Initialize Redis client for caching
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	defer redisClient.Close()
+
 	authRepo := auth.NewAuthRepository(db)
 	authService := auth.NewAuthService(authRepo)
 	authHandler := auth.NewAuthHandler(authService)
 
-	teamRepo := team.NewTeamRepository(db)
+	teamRepo := team.NewTeamRepository(db, redisClient)
 	teamService := team.NewTeamService(teamRepo)
 	teamHandler := team.NewTeamHandler(teamService)
 
-	assetRepo := asset.NewAssetRepository(db)
+	assetRepo := asset.NewAssetRepository(db, redisClient)
 	assetService := asset.NewAssetService(assetRepo)
 	assetHandler := asset.NewAssetHandler(assetService)
 
