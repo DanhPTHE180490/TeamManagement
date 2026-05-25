@@ -24,11 +24,26 @@ func main() {
 	db := database.InitDB()
 	defer db.Close()
 
-	// Initialize Redis client for caching (uses REDIS_URL env or fallback)
+	// Initialize Redis client for caching with a retry/backoff mechanism
 	redisClient, err := cache.InitRedis()
+
+	maxRetries := 5
+	backoff := 2 * time.Second
+
+	for i := 1; i <= maxRetries && err != nil; i++ {
+		log.Printf("WARNING: Redis unavailable (attempt %d/%d): %v. Retrying in %v...", i, maxRetries, err, backoff)
+		time.Sleep(backoff)
+		redisClient, err = cache.InitRedis()
+
+		// Optional: uncomment for exponential backoff
+		// backoff *= 2
+	}
+
 	if err != nil {
-		log.Printf("WARNING: Redis unavailable, continuing without cache: %v", err)
+		log.Printf("WARNING: Redis completely unavailable after %d attempts. Continuing without cache: %v", maxRetries, err)
 	} else {
+		log.Println("Redis initialized successfully.")
+		// Ensure whatever type cache.InitRedis() returns has a Close() method
 		defer redisClient.Close()
 	}
 

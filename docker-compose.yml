@@ -20,9 +20,14 @@ services:
   # 2. The Redis Service
   redis:
     image: redis:7-alpine
-    container_name: capstone_redis
+    container_name: team_management_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +46,6 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     stop_signal: SIGINT
     stop_grace_period: 15s

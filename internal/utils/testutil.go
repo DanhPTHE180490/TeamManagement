@@ -2,12 +2,13 @@ package utils
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 
 	"team-management/internal/database"
 
+	"github.com/gofrs/flock"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,17 +19,19 @@ func InitAndResetDB(t *testing.T) *sqlx.DB {
 		os.Setenv("DB_DSN", "root:password_1234@tcp(127.0.0.1:3307)/microservices_capstone?parseTime=true")
 	}
 
-	lockFile, err := os.OpenFile("/tmp/team-management-itest.lock", os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		t.Fatalf("failed to open integration test lock file: %v", err)
-	}
-	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
-		lockFile.Close()
+	// Use os.TempDir() for cross-platform temp directory resolution
+	lockPath := filepath.Join(os.TempDir(), "team-management-itest.lock")
+	fileLock := flock.New(lockPath)
+
+	// Block until the lock is successfully acquired
+	if err := fileLock.Lock(); err != nil {
 		t.Fatalf("failed to acquire integration test lock: %v", err)
 	}
+
 	t.Cleanup(func() {
-		_ = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
-		_ = lockFile.Close()
+		if err := fileLock.Unlock(); err != nil {
+			t.Logf("failed to release integration test lock: %v", err)
+		}
 	})
 
 	db := database.InitDB()

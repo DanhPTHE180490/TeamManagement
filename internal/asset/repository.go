@@ -88,7 +88,6 @@ func (r *assetRepositoryImpl) GetNoteByID(ctx context.Context, id int64) (*model
 	if err == nil {
 		var cachedNote models.Note
 		if err := json.Unmarshal([]byte(cached), &cachedNote); err == nil {
-			log.Printf("CACHE HIT: Retrieved note %d from Redis", id)
 			return &cachedNote, nil
 		}
 	}
@@ -143,8 +142,8 @@ func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note)
 	note.ID = id
 	note.CreatedAt = now
 	note.UpdatedAt = now
-	// Invalidate related caches (user's notes list)
-	r.cacheDel(ctx, fmt.Sprintf("user:%d:notes", note.OwnerID))
+	// Invalidate related caches (user's notes list and any stale note entry)
+	r.cacheDel(ctx, fmt.Sprintf("user:%d:notes", note.OwnerID), fmt.Sprintf("note:%d", note.ID))
 	// Cache the created note
 	r.cacheSet(ctx, fmt.Sprintf("note:%d", note.ID), note, 10*time.Minute)
 	return note, nil
@@ -162,7 +161,6 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 	if err == nil {
 		var cachedNotes []*models.Note
 		if err := json.Unmarshal([]byte(cached), &cachedNotes); err == nil {
-			log.Printf("CACHE HIT: Retrieved notes for user %d from Redis", userID)
 			return cachedNotes, nil
 		}
 	}
@@ -197,13 +195,27 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 }
 
 func (r *assetRepositoryImpl) DeleteNote(ctx context.Context, noteID int64) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM notes WHERE id = ?", noteID)
+	var ownerID int64
+	var err error
+	if r != nil && r.redis != nil {
+		err = r.db.QueryRowContext(ctx, "SELECT owner_id FROM notes WHERE id = ?", noteID).Scan(&ownerID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return utils.NewNotFoundError("note")
+			}
+			return utils.NewInternalError("failed to look up note before delete", err)
+		}
+	}
+
+	_, err = r.db.ExecContext(ctx, "DELETE FROM notes WHERE id = ?", noteID)
 	if err != nil {
 		return utils.NewInternalError("failed to delete note", err)
 	}
 
-	// Invalidate note caches
-	r.cacheDel(ctx, fmt.Sprintf("note:%d", noteID), fmt.Sprintf("note:%d:shares", noteID))
+	// Invalidate note caches and the owner's notes list
+	if r != nil && r.redis != nil {
+		r.cacheDel(ctx, fmt.Sprintf("note:%d", noteID), fmt.Sprintf("note:%d:shares", noteID), fmt.Sprintf("user:%d:notes", ownerID))
+	}
 
 	return nil
 }
@@ -245,7 +257,6 @@ func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) (
 	if err == nil {
 		var cachedShares []*models.NoteShare
 		if err := json.Unmarshal([]byte(cached), &cachedShares); err == nil {
-			log.Printf("CACHE HIT: Retrieved shares for note %d from Redis", noteID)
 			return cachedShares, nil
 		}
 	}
@@ -283,7 +294,6 @@ func (r *assetRepositoryImpl) GetFolderShares(ctx context.Context, folderID int6
 	if err == nil {
 		var cachedShares []*models.FolderShare
 		if err := json.Unmarshal([]byte(cached), &cachedShares); err == nil {
-			log.Printf("CACHE HIT: Retrieved shares for folder %d from Redis", folderID)
 			return cachedShares, nil
 		}
 	}
@@ -354,8 +364,8 @@ func (r *assetRepositoryImpl) CreateFolder(ctx context.Context, folder *models.F
 	folder.ID = id
 	folder.CreatedAt = now
 	folder.UpdatedAt = now
-	// Invalidate user's folder list cache
-	r.cacheDel(ctx, fmt.Sprintf("user:%d:folders", folder.OwnerID))
+	// Invalidate user's folder list cache and any stale folder entry
+	r.cacheDel(ctx, fmt.Sprintf("user:%d:folders", folder.OwnerID), fmt.Sprintf("folder:%d", folder.ID))
 	r.cacheSet(ctx, fmt.Sprintf("folder:%d", folder.ID), folder, 10*time.Minute)
 	return folder, nil
 }
@@ -372,7 +382,6 @@ func (r *assetRepositoryImpl) GetUserFolders(ctx context.Context, userID int64) 
 	if err == nil {
 		var cachedFolders []*models.Folder
 		if err := json.Unmarshal([]byte(cached), &cachedFolders); err == nil {
-			log.Printf("CACHE HIT: Retrieved folders for user %d from Redis", userID)
 			return cachedFolders, nil
 		}
 	}
@@ -412,7 +421,6 @@ func (r *assetRepositoryImpl) GetFolderByID(ctx context.Context, folderID int64)
 	if err == nil {
 		var cachedFolder models.Folder
 		if err := json.Unmarshal([]byte(cached), &cachedFolder); err == nil {
-			log.Printf("CACHE HIT: Retrieved folder %d from Redis", folderID)
 			return &cachedFolder, nil
 		}
 	}
@@ -431,12 +439,46 @@ func (r *assetRepositoryImpl) GetFolderByID(ctx context.Context, folderID int64)
 }
 
 func (r *assetRepositoryImpl) DeleteFolder(ctx context.Context, folderID int64) error {
+	var ownerID int64
+	var noteIDs []int64
+	if r != nil && r.redis != nil {
+		if err := r.db.QueryRowContext(ctx, "SELECT owner_id FROM folders WHERE id = ?", folderID).Scan(&ownerID); err != nil {
+			if err == sql.ErrNoRows {
+				return utils.NewNotFoundError("folder")
+			}
+			return utils.NewInternalError("failed to look up folder before delete", err)
+		}
+
+		noteRows, err := r.db.QueryContext(ctx, "SELECT id FROM notes WHERE folder_id = ?", folderID)
+		if err != nil {
+			return utils.NewInternalError("failed to look up folder notes before delete", err)
+		}
+		defer noteRows.Close()
+
+		for noteRows.Next() {
+			var noteID int64
+			if err := noteRows.Scan(&noteID); err != nil {
+				return utils.NewInternalError("failed to scan folder note before delete", err)
+			}
+			noteIDs = append(noteIDs, noteID)
+		}
+		if err := noteRows.Err(); err != nil {
+			return utils.NewInternalError("failed to read folder notes before delete", err)
+		}
+	}
+
 	_, err := r.db.ExecContext(ctx, "DELETE FROM folders WHERE id = ?", folderID)
 	if err != nil {
 		return utils.NewInternalError("failed to delete folder", err)
 	}
-	// Invalidate cache for the deleted folder
-	r.cacheDel(ctx, fmt.Sprintf("folder:%d:shares", folderID), fmt.Sprintf("folder:%d", folderID))
+	// Invalidate cache for the deleted folder, the owner's folder list, and any deleted notes.
+	if r != nil && r.redis != nil {
+		keys := []string{fmt.Sprintf("folder:%d:shares", folderID), fmt.Sprintf("folder:%d", folderID), fmt.Sprintf("user:%d:folders", ownerID), fmt.Sprintf("user:%d:notes", ownerID)}
+		for _, noteID := range noteIDs {
+			keys = append(keys, fmt.Sprintf("note:%d", noteID), fmt.Sprintf("note:%d:shares", noteID))
+		}
+		r.cacheDel(ctx, keys...)
+	}
 	return nil
 }
 

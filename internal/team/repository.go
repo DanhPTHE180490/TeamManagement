@@ -102,6 +102,8 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 		return apperrors.NewInternalError("failed to commit database transaction", err), 0
 	}
 
+	r.cacheDel(ctx, fmt.Sprintf("team:%d", teamID), fmt.Sprintf("teams:user:%d", userID))
+
 	return nil, teamID
 }
 
@@ -117,7 +119,6 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 	if err == nil {
 		var team models.Team
 		if err := json.Unmarshal([]byte(cachedData), &team); err == nil {
-			log.Printf("CACHE HIT: Returned team %d from Redis", id)
 			return &team, nil
 		}
 	}
@@ -180,7 +181,6 @@ func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]
 	if err == nil {
 		var teams []*models.Team
 		if err := json.Unmarshal([]byte(cachedData), &teams); err == nil {
-			log.Printf("CACHE HIT: Returned teams for user %d from Redis", userID)
 			return teams, nil
 		}
 	}
@@ -311,6 +311,8 @@ func (r *teamRepository) AddMember(ctx context.Context, teamID int64, userID int
 		log.Printf("Database error adding user %d to team %d: %v", userID, teamID, err)
 		return apperrors.NewInternalError("failed to add member to team", err)
 	}
+
+	r.cacheDel(ctx, fmt.Sprintf("team:%d", teamID), fmt.Sprintf("teams:user:%d", userID))
 	return nil
 }
 
