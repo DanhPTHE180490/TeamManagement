@@ -52,6 +52,19 @@ func (h *AssetHandler) RegisterRoutes(protectedGroup *gin.RouterGroup) {
 	}
 }
 
+// GetNote godoc
+// @Summary      Get a note by ID
+// @Description  Retrieves a note by its ID. Requires read or write access.
+// @Tags         Notes
+// @Produce      json
+// @Param        id   path      int  true  "Note ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [get]
 func (h *AssetHandler) GetNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -90,6 +103,20 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"note": note, "shares": shares})
 }
 
+// CreateNote godoc
+// @Summary      Create a new note
+// @Description  Creates a new note with a title, content, and optional folder. The note will be owned by the requester.
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]interface{}  true  "Example: {'title': 'Note Title', 'content': 'Note content', 'folder_id': 2}"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes [post]
 func (h *AssetHandler) CreateNote(c *gin.Context) {
 	var req models.NoteCreateRequest
 
@@ -123,6 +150,18 @@ func (h *AssetHandler) CreateNote(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Note created successfully", "note": note})
 }
 
+// GetUserNotes godoc
+// @Summary      Get notes of a user
+// @Description  Retrieves all notes that belong to a user. User can only access their own notes.
+// @Tags         Notes
+// @Produce      json
+// @Param        userId   path      int  true  "User ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/user/{userId} [get]
 func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
@@ -150,6 +189,21 @@ func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"notes": notes})
 }
 
+// UpdateNote godoc
+// @Summary      Update a note
+// @Description  Updates the title, content, or folder of a note. Requires write access.
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Note ID"
+// @Param        request  body      map[string]interface{}  true  "Example: {'title': 'New Title', 'content': 'Updated content', 'folder_id': 2}"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [put]
 func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -188,6 +242,19 @@ func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Note updated successfully", "note": note})
 }
 
+// DeleteNote godoc
+// @Summary      Delete a note
+// @Description  Deletes a note by its ID. Requires owner or write access.
+// @Tags         Notes
+// @Produce      json
+// @Param        id   path      int  true  "Note ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [delete]
 func (h *AssetHandler) DeleteNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -215,6 +282,21 @@ func (h *AssetHandler) DeleteNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Note deleted successfully"})
 }
 
+// ShareNote godoc
+// @Summary      Share a note with another user
+// @Description  Shares a note with another user by granting them read or write access. Requires owner or write access.
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Note ID"
+// @Param        request  body      map[string]interface{}  true  "Example: {'user_id': 2, 'permission': 'read'}"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/{id}/share [post]
 func (h *AssetHandler) ShareNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -253,6 +335,20 @@ func (h *AssetHandler) ShareNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Note shared successfully"})
 }
 
+// RemoveNoteShare godoc
+// @Summary      Remove a user's access to a note
+// @Description  Removes a user's access to a note. Requires owner or write access.
+// @Tags         Notes
+// @Produce      json
+// @Param        id   path      int  true  "Note ID"
+// @Param        userId   path      int  true  "User ID to remove access for"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/{id}/share/{userId} [delete]
 func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -290,6 +386,16 @@ func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Share removed successfully"})
 }
 
+// GetSharedNotes godoc
+// @Summary      Get shared notes
+// @Description  Retrieves all notes that have been shared with the user.
+// @Tags         Notes
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/shared [get]
 func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 	requesterID, ok := getRequesterID(c)
 	if !ok {
@@ -306,6 +412,20 @@ func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"notes": notes})
 }
 
+// CreateFolder godoc
+// @Summary      Create a new folder
+// @Description  Creates a new folder with a specified name. The folder will be owned by the requester.
+// @Tags         Folders
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]string  true  "Example: {'name': 'Project Documents'}"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/folders [post]
 func (h *AssetHandler) CreateFolder(c *gin.Context) {
 	var req models.FolderCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -338,6 +458,18 @@ func (h *AssetHandler) CreateFolder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Folder created successfully", "folder": folder})
 }
 
+// GetUserFolders godoc
+// @Summary      Get folders of a user
+// @Description  Retrieves all folders that belong to a user. User can only access their own folders.
+// @Tags         Folders
+// @Produce      json
+// @Param        userId   path      int  true  "User ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/folders/user/{userId} [get]
 func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
@@ -365,6 +497,19 @@ func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"folders": folders})
 }
 
+// DeleteFolder godoc
+// @Summary      Delete a folder
+// @Description  Deletes a folder by its ID. Only the owner can delete a folder.
+// @Tags         Folders
+// @Produce      json
+// @Param        id   path      int  true  "Folder ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/folders/{id} [delete]
 func (h *AssetHandler) DeleteFolder(c *gin.Context) {
 	folderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

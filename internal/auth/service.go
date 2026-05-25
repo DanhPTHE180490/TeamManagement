@@ -10,10 +10,13 @@ import (
 	"strings"
 	"sync"
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
+	"team-management/internal/utils"
 	"time"
 
+	"team-management/internal/audit"
+
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,11 +50,13 @@ type BulkImportSummary struct {
 type AuthService interface {
 	Register(ctx context.Context, username, email, password, role string) (*models.User, error)
 	Login(ctx context.Context, email, password string) (string, error)
-	BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error)
+	BulkImportUsersFromCSV(ctx context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error)
+	BlacklistToken(ctx context.Context, tokenString string, expiration time.Time) error
 }
 
 type authServiceImpl struct {
-	repo AuthRepository
+	repo        AuthRepository
+	redisClient *redis.Client
 }
 
 type contextAwareReader struct {
@@ -75,33 +80,33 @@ func newContextAwareReader(ctx context.Context, reader io.Reader) io.Reader {
 }
 
 // NewAuthService acts as a constructor
-func NewAuthService(repo AuthRepository) AuthService {
-	return &authServiceImpl{repo: repo}
+func NewAuthService(repo AuthRepository, redisClient *redis.Client) AuthService {
+	return &authServiceImpl{repo: repo, redisClient: redisClient}
 }
 
 func (s *authServiceImpl) Register(ctx context.Context, username, email, password, role string) (*models.User, error) {
 	// Validate input
 	if len(username) == 0 || len(username) > 50 {
-		return nil, apperrors.NewValidationError("username", "must be between 1 and 50 characters")
+		return nil, utils.NewValidationError("username", "must be between 1 and 50 characters")
 	}
 
 	if len(email) == 0 {
-		return nil, apperrors.NewValidationError("email", "cannot be empty")
+		return nil, utils.NewValidationError("email", "cannot be empty")
 	}
 
 	if len(password) < 6 {
-		return nil, apperrors.NewValidationError("password", "must be at least 6 characters")
+		return nil, utils.NewValidationError("password", "must be at least 6 characters")
 	}
 
 	// Validate role
 	if role != "manager" && role != "member" && role != "main_manager" {
-		return nil, apperrors.NewValidationError("role", "must be 'manager', 'member', or 'main_manager'")
+		return nil, utils.NewValidationError("role", "must be 'manager', 'member', or 'main_manager'")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Failed to hash password for user %s: %v", username, err)
-		return nil, apperrors.NewInternalError("Failed to process password", err)
+		return nil, utils.NewInternalError("Failed to process password", err)
 	}
 
 	// Enforce role rules: only allow manager, default others to member
@@ -120,12 +125,25 @@ func (s *authServiceImpl) Register(ctx context.Context, username, email, passwor
 
 	err = s.repo.CreateUser(ctx, user)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeDuplicate) {
+		if utils.IsErrorType(err, utils.ErrTypeDuplicate) {
 			return nil, err // Already wrapped as duplicate error
 		}
 		log.Printf("Failed to create user %s: %v", email, err)
-		return nil, apperrors.NewInternalError("Failed to create user", err)
+		return nil, utils.NewInternalError("Failed to create user", err)
 	}
+
+	userID := int64(user.ID)
+	entityType := "user"
+
+	audit.PublishEvent(
+		ctx,
+		s.redisClient,
+		&userID,
+		"USER_REGISTERED",
+		entityType,
+		&userID,
+		map[string]any{"role": role, "email": email},
+	)
 
 	log.Printf("User registered successfully: %s (email: %s, role: %s)", username, email, role)
 	return user, nil
@@ -134,26 +152,26 @@ func (s *authServiceImpl) Register(ctx context.Context, username, email, passwor
 func (s *authServiceImpl) Login(ctx context.Context, email, password string) (string, error) {
 	// Validate input
 	if len(email) == 0 {
-		return "", apperrors.NewValidationError("email", "cannot be empty")
+		return "", utils.NewValidationError("email", "cannot be empty")
 	}
 	if len(password) == 0 {
-		return "", apperrors.NewValidationError("password", "cannot be empty")
+		return "", utils.NewValidationError("password", "cannot be empty")
 	}
 
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
-		if apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+		if utils.IsErrorType(err, utils.ErrTypeNotFound) {
 			log.Printf("Login attempt for non-existent user: %s", email)
-			return "", apperrors.NewUnauthorizedError("invalid email or password")
+			return "", utils.NewUnauthorizedError("invalid email or password")
 		}
 		log.Printf("Database error during login for email %s: %v", email, err)
-		return "", apperrors.NewInternalError("Failed to authenticate user", err)
+		return "", utils.NewInternalError("Failed to authenticate user", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
 		log.Printf("Failed password attempt for user: %s", email)
-		return "", apperrors.NewUnauthorizedError("invalid email or password")
+		return "", utils.NewUnauthorizedError("invalid email or password")
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -165,14 +183,27 @@ func (s *authServiceImpl) Login(ctx context.Context, email, password string) (st
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
 		log.Printf("Failed to generate JWT token for user %d: %v", user.ID, err)
-		return "", apperrors.NewInternalError("Failed to generate authentication token", err)
+		return "", utils.NewInternalError("Failed to generate authentication token", err)
 	}
+
+	userID := int64(user.ID)
+	entityType := "user"
+
+	audit.PublishEvent(
+		ctx,
+		s.redisClient,
+		&userID,
+		"USER_LOGGED_IN",
+		entityType,
+		&userID,
+		map[string]any{"email": email},
+	)
 
 	log.Printf("User logged in successfully: %s (ID: %d)", email, user.ID)
 	return tokenString, nil
 }
 
-func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.Reader) (*BulkImportSummary, error) {
+func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error) {
 	csvReader := csv.NewReader(newContextAwareReader(ctx, reader))
 	var wg sync.WaitGroup
 	jobChan := make(chan UserImportJob)
@@ -247,6 +278,20 @@ func (s *authServiceImpl) BulkImportUsersFromCSV(ctx context.Context, reader io.
 		}
 	}
 
+	audit.PublishEvent(
+		ctx,
+		s.redisClient,
+		&requesterID,
+		"BULK_IMPORT_COMPLETED",
+		"system",
+		nil,
+		map[string]any{
+			"total_processed": summary.TotalProcessed,
+			"succeeded":       summary.Succeeded,
+			"failed":          summary.Failed,
+		},
+	)
+
 	log.Printf("Bulk import completed: %d processed, %d succeeded, %d failed", summary.TotalProcessed, summary.Succeeded, summary.Failed)
 	return summary, nil
 }
@@ -273,4 +318,20 @@ func (s *authServiceImpl) processImportJobs(ctx context.Context, wg *sync.WaitGr
 			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: true}
 		}
 	}
+}
+
+func (s *authServiceImpl) BlacklistToken(ctx context.Context, tokenString string, expiration time.Time) error {
+	// Calculate how much time the token has left before it naturally expires
+	ttl := time.Until(expiration)
+
+	if ttl <= 0 {
+		// Token is already expired, no need to waste Redis memory
+		return nil
+	}
+
+	// Save it to Redis with a prefix to keep things organized
+	redisKey := "blacklist:" + tokenString
+
+	// Set the value to "true" and apply the TTL
+	return s.redisClient.Set(ctx, redisKey, "true", ttl).Err()
 }

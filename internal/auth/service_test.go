@@ -98,7 +98,7 @@ func TestAuthService_Register(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAuthService(repo)
+			service := NewAuthService(repo, nil)
 
 			user, err := service.Register(context.Background(), tc.username, tc.email, tc.password, tc.role)
 			if tc.wantErr {
@@ -208,7 +208,7 @@ func TestAuthService_Login(t *testing.T) {
 			if tc.setupRepo != nil {
 				tc.setupRepo(repo)
 			}
-			service := NewAuthService(repo)
+			service := NewAuthService(repo, nil)
 
 			token, err := service.Login(context.Background(), tc.email, tc.password)
 			if tc.wantErr {
@@ -253,9 +253,9 @@ func TestAuthService_Login(t *testing.T) {
 
 func TestAuthService_BulkImportUsersFromCSV(t *testing.T) {
 	repo := &mockAuthRepo{}
-	service := NewAuthService(repo)
+	service := NewAuthService(repo, nil)
 
-	summary, err := service.BulkImportUsersFromCSV(context.Background(), strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbad-row-only\n"))
+	summary, err := service.BulkImportUsersFromCSV(context.Background(), 1, strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbad-row-only\n"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -294,9 +294,9 @@ func TestAuthService_BulkImportUsersFromCSV_RespectsRowLimit(t *testing.T) {
 	})
 
 	repo := &mockAuthRepo{}
-	service := NewAuthService(repo)
+	service := NewAuthService(repo, nil)
 
-	summary, err := service.BulkImportUsersFromCSV(context.Background(), strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbob,bob@example.com,password123,member\n"))
+	summary, err := service.BulkImportUsersFromCSV(context.Background(), 1, strings.NewReader("username,email,password,role\nalice,alice@example.com,password123,manager\nbob,bob@example.com,password123,member\n"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

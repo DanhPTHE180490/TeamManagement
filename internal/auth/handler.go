@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"team-management/internal/models"
 	"team-management/internal/utils"
@@ -35,11 +36,20 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
 	authGroup := protectedGroup.Group("/auth")
 	{
+		authGroup.POST("/logout", h.Logout)
 		authGroup.POST("/import-users", h.BulkImportUsers)
 	}
 }
 
-// Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
+// Register godoc
+// @Summary      Register a new user
+// @Description  Creates a new user account with a specified role (manager, member)
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]string  true  "Example: {'username': 'test', 'email': 't@t.com', 'password': '123', 'role': 'manager'}"
+// @Success      201      {object}  map[string]interface{}
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.UserRegisterRequest
 
@@ -75,7 +85,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
-// Login expects {"email": "...", "password": "..."}
+// Login godoc
+// @Summary      Login a user
+// @Description  Authenticates a user and returns a JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]string  true  "Example: {'email': 't@t.com', 'password': '123'}"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.UserLoginRequest
 
@@ -110,18 +128,96 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// internal/auth/handler.go
+
+// Logout godoc
+// @Summary      Logout a user
+// @Description  Invalidates the user's current bearer token server-side.
+// @Tags         Auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200      {object}  map[string]interface{}
+// @Failure      401      {object}  map[string]interface{}
+// @Router       /api/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Using JWT is stateless so we can't invalidate tokens server-side without additional infrastructure (like a blacklist).
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Logout successful (client should delete the token)",
-	})
+	// Extract the raw token from the header
+	authHeader := c.GetHeader("Authorization")
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+	// Assuming your middleware parsed the JWT and stored the expiration in the context
+	// (If it doesn't do this yet, you'll need to add it to your middleware!)
+	expCtx, exists := c.Get("tokenExp")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not determine token expiration"})
+		return
+	}
+
+	expiration, ok := expCtx.(time.Time)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid expiration format"})
+		return
+	}
+
+	// Send it to Redis!
+	err := h.service.BlacklistToken(c.Request.Context(), tokenString, expiration)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to logout securely"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful! Token invalidated."})
 }
 
+// BulkImportUsers godoc
+// @Summary      Bulk import users
+// @Description  Allows managers or main managers to bulk import users via a CSV file upload.
+// @Tags         Auth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file     formData  file  true  "CSV file containing user data"
+// @Success      200      {object}  map[string]interface{}
+// @Failure      400      {object}  map[string]interface{}
+// @Failure      401      {object}  map[string]interface{}
+// @Failure      403      {object}  map[string]interface{}
+// @Failure      413      {object}  map[string]interface{}
+// @Failure      500      {object}  map[string]interface{}
+// @Router       /api/auth/import-users [post]
 func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 	userRole, exists := c.Get("userRole")
 	if !exists || (userRole != "manager" && userRole != "main_manager") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only managers can bulk import users"})
 		return
+	}
+
+	_, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: missing user ID"})
+		return
+	}
+
+	var requesterID int64
+	if userIDCtx, ok := c.Get("userID"); ok {
+		if floatID, isFloat := userIDCtx.(float64); isFloat {
+			requesterID = int64(floatID)
+		}
+		switch v := userIDCtx.(type) {
+		case int64:
+			requesterID = v
+		case int:
+			requesterID = int64(v)
+		case int32:
+			requesterID = int64(v)
+		case float64:
+			requesterID = int64(v)
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: invalid user ID"})
+			return
+		}
+		if requesterID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: invalid user ID"})
+			return
+		}
 	}
 
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBulkImportUploadBytes)
@@ -148,7 +244,7 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 	}
 	defer file.Close()
 
-	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), file)
+	summary, err := h.service.BulkImportUsersFromCSV(c.Request.Context(), requesterID, file)
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {

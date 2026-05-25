@@ -52,6 +52,9 @@ func RequireAuth() gin.HandlerFunc {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			c.Set("userID", claims["user_id"])
 			c.Set("userRole", claims["system_role"])
+			if exp, err := claims.GetExpirationTime(); err == nil && exp != nil {
+				c.Set("tokenExp", exp.Time)
+			}
 		}
 
 		c.Next()
