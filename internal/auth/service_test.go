@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	customErrors "team-management/internal/errors"
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -35,7 +35,7 @@ func (m *mockAuthRepo) GetUserByEmail(_ context.Context, email string) (*models.
 	if m.getUserByEmailFn != nil {
 		return m.getUserByEmailFn(context.Background(), email)
 	}
-	return nil, apperrors.NewNotFoundError("user")
+	return nil, customErrors.NewNotFoundError("user")
 }
 
 func TestAuthService_Register(t *testing.T) {
@@ -48,7 +48,7 @@ func TestAuthService_Register(t *testing.T) {
 		setupRepo func(*mockAuthRepo)
 		wantRole  string
 		wantErr   bool
-		wantType  apperrors.ErrorType
+		wantType  customErrors.ErrorType
 	}{
 		{
 			name:     "success manager",
@@ -65,7 +65,7 @@ func TestAuthService_Register(t *testing.T) {
 			password: "password123",
 			role:     "superadmin",
 			wantErr:  true,
-			wantType: apperrors.ErrTypeValidation,
+			wantType: customErrors.ErrTypeValidation,
 		},
 		{
 			name:     "duplicate email",
@@ -75,11 +75,11 @@ func TestAuthService_Register(t *testing.T) {
 			role:     "member",
 			setupRepo: func(repo *mockAuthRepo) {
 				repo.createUserFn = func(context.Context, *models.User) error {
-					return apperrors.NewDuplicateError("email", errors.New("duplicate key"))
+					return customErrors.NewDuplicateError("email", errors.New("duplicate key"))
 				}
 			},
 			wantErr:  true,
-			wantType: apperrors.ErrTypeDuplicate,
+			wantType: customErrors.ErrTypeDuplicate,
 		},
 		{
 			name:     "empty username",
@@ -88,7 +88,7 @@ func TestAuthService_Register(t *testing.T) {
 			password: "password123",
 			role:     "member",
 			wantErr:  true,
-			wantType: apperrors.ErrTypeValidation,
+			wantType: customErrors.ErrTypeValidation,
 		},
 	}
 
@@ -105,7 +105,7 @@ func TestAuthService_Register(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error, got nil")
 				}
-				if !apperrors.IsErrorType(err, tc.wantType) {
+				if !customErrors.IsErrorType(err, tc.wantType) {
 					t.Fatalf("expected error type %s, got %v", tc.wantType, err)
 				}
 				return
@@ -152,7 +152,7 @@ func TestAuthService_Login(t *testing.T) {
 		password  string
 		setupRepo func(*mockAuthRepo)
 		wantErr   bool
-		wantType  apperrors.ErrorType
+		wantType  customErrors.ErrorType
 	}{
 		{
 			name:     "success",
@@ -174,7 +174,7 @@ func TestAuthService_Login(t *testing.T) {
 				}
 			},
 			wantErr:  true,
-			wantType: apperrors.ErrTypeUnauthorized,
+			wantType: customErrors.ErrTypeUnauthorized,
 		},
 		{
 			name:     "missing user",
@@ -182,11 +182,11 @@ func TestAuthService_Login(t *testing.T) {
 			password: "password123",
 			setupRepo: func(repo *mockAuthRepo) {
 				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
-					return nil, apperrors.NewNotFoundError("user")
+					return nil, customErrors.NewNotFoundError("user")
 				}
 			},
 			wantErr:  true,
-			wantType: apperrors.ErrTypeUnauthorized,
+			wantType: customErrors.ErrTypeUnauthorized,
 		},
 		{
 			name:     "repository error",
@@ -194,11 +194,11 @@ func TestAuthService_Login(t *testing.T) {
 			password: "password123",
 			setupRepo: func(repo *mockAuthRepo) {
 				repo.getUserByEmailFn = func(context.Context, string) (*models.User, error) {
-					return nil, apperrors.NewInternalError("db unavailable", errors.New("boom"))
+					return nil, customErrors.NewInternalError("db unavailable", errors.New("boom"))
 				}
 			},
 			wantErr:  true,
-			wantType: apperrors.ErrTypeInternal,
+			wantType: customErrors.ErrTypeInternal,
 		},
 	}
 
@@ -215,7 +215,7 @@ func TestAuthService_Login(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error, got nil")
 				}
-				if !apperrors.IsErrorType(err, tc.wantType) {
+				if !customErrors.IsErrorType(err, tc.wantType) {
 					t.Fatalf("expected error type %s, got %v", tc.wantType, err)
 				}
 				return

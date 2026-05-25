@@ -1,11 +1,10 @@
 package team
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
-	"team-management/internal/utils"
+	customErrors "team-management/internal/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,11 +57,7 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := utils.FormatValidationError(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   appErr.Message,
-			"details": appErr.Details,
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": InvalidInput + ": " + err.Error()})
 		return
 	}
 
@@ -94,16 +89,15 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 
 	team, err := h.service.CreateTeam(c.Request.Context(), req.Name, uid, role)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": CreateTeamError})
 		return
 	}
 
@@ -123,16 +117,11 @@ func (h *TeamHandler) GetTeamByID(c *gin.Context) {
 
 	team, err := h.service.GetTeamByID(c.Request.Context(), teamID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": GetTeamError})
 		return
 	}
 
@@ -154,16 +143,7 @@ func (h *TeamHandler) GetTeamsByUserID(c *gin.Context) {
 
 	teams, err := h.service.GetTeamsByUserID(c.Request.Context(), userID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": GetTeamsError})
 		return
 	}
 
@@ -183,11 +163,7 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := utils.FormatValidationError(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   appErr.Message,
-			"details": appErr.Details,
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": InvalidInput + ": " + err.Error()})
 		return
 	}
 
@@ -206,16 +182,19 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 
 	team, err := h.service.UpdateTeam(c.Request.Context(), teamID, req.Name, requesterID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": UpdateTeamError})
 		return
 	}
 
@@ -248,16 +227,15 @@ func (h *TeamHandler) DeleteTeam(c *gin.Context) {
 
 	err = h.service.DeleteTeam(c.Request.Context(), teamID, requesterID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": TeamNotFoundError})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": DeleteTeamError})
 		return
 	}
 
@@ -277,11 +255,7 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := utils.FormatValidationError(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   appErr.Message,
-			"details": appErr.Details,
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": InvalidInput + ": " + err.Error()})
 		return
 	}
 
@@ -300,16 +274,23 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 
 	err = h.service.AddMemberToTeam(c.Request.Context(), teamID, req.UserID, requesterID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Type == utils.ErrTypeInternal {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": utils.ErrTypeInternalServer})
-			} else {
-				c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
-			}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Member added to team"})
@@ -345,12 +326,15 @@ func (h *TeamHandler) RemoveMemberFromTeam(c *gin.Context) {
 
 	err = h.service.RemoveMemberFromTeam(c.Request.Context(), teamID, targetUserID, requesterID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Member removed from team"})
@@ -376,11 +360,7 @@ func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := utils.FormatValidationError(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   appErr.Message,
-			"details": appErr.Details,
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": InvalidInput + ": " + err.Error()})
 		return
 	}
 
@@ -399,12 +379,19 @@ func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
 
 	err = h.service.UpdateMemberRole(c.Request.Context(), teamID, targetUserID, req.Role, requesterID)
 	if err != nil {
-		var appErr *utils.AppError
-		if errors.As(err, &appErr) {
-			c.JSON(utils.MapErrorToHTTPStatus(err), gin.H{"error": appErr.Message})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrTypeInternalServer})
+		if customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Member role updated"})

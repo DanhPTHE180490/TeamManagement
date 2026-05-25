@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"log"
 	"strings"
+	"team-management/internal/errors"
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
 )
 
 type TeamRepository interface {
@@ -34,7 +34,7 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("Failed to start transaction for team creation: %v", err)
-		return apperrors.NewInternalError("failed to start database transaction", err), 0
+		return errors.NewInternalError("failed to start database transaction", err), 0
 	}
 
 	teamQuery := "INSERT INTO teams (name) VALUES (?)"
@@ -42,14 +42,14 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Failed to insert team: %v", err)
-		return apperrors.NewInternalError("failed to create team in database", err), 0
+		return errors.NewInternalError("failed to create team in database", err), 0
 	}
 
 	teamID, err := result.LastInsertId()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Failed to get team ID after insert: %v", err)
-		return apperrors.NewInternalError("failed to retrieve team ID", err), 0
+		return errors.NewInternalError("failed to retrieve team ID", err), 0
 	}
 
 	memberQuery := "INSERT INTO team_members (team_id, user_id, team_role) VALUES (?, ?, 'main_manager')"
@@ -57,13 +57,13 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Failed to add main_manager to team %d: %v", teamID, err)
-		return apperrors.NewInternalError("failed to assign team owner", err), 0
+		return errors.NewInternalError("failed to assign team owner", err), 0
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("Failed to commit transaction for team creation: %v", err)
-		return apperrors.NewInternalError("failed to commit database transaction", err), 0
+		return errors.NewInternalError("failed to commit database transaction", err), 0
 	}
 
 	return nil, teamID
@@ -76,10 +76,10 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("Team not found with ID: %d", id)
-			return nil, apperrors.NewNotFoundError("team")
+			return nil, errors.NewNotFoundError("team")
 		}
 		log.Printf("Database error retrieving team %d: %v", id, err)
-		return nil, apperrors.NewInternalError("failed to retrieve team", err)
+		return nil, errors.NewInternalError("failed to retrieve team", err)
 	}
 
 	membersQuery := `
@@ -90,7 +90,7 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 	membersRows, err := r.db.QueryContext(ctx, membersQuery, id)
 	if err != nil {
 		log.Printf("Database error retrieving members for team %d: %v", id, err)
-		return nil, apperrors.NewInternalError("failed to retrieve team members", err)
+		return nil, errors.NewInternalError("failed to retrieve team members", err)
 	}
 	defer membersRows.Close()
 
@@ -99,7 +99,7 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 		member := models.TeamMember{}
 		if err := membersRows.Scan(&member.UserID, &member.TeamRole, &member.JoinedAt); err != nil {
 			log.Printf("Error scanning member row for team %d: %v", id, err)
-			return nil, apperrors.NewInternalError("failed to parse team members", err)
+			return nil, errors.NewInternalError("failed to parse team members", err)
 		}
 		member.TeamID = id
 		team.Members = append(team.Members, member)
@@ -107,7 +107,7 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 
 	if err = membersRows.Err(); err != nil {
 		log.Printf("Error iterating members for team %d: %v", id, err)
-		return nil, apperrors.NewInternalError("failed to retrieve team members", err)
+		return nil, errors.NewInternalError("failed to retrieve team members", err)
 	}
 	return team, nil
 }
@@ -121,7 +121,7 @@ func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		log.Printf("Database error retrieving teams for user %d: %v", userID, err)
-		return nil, apperrors.NewInternalError("failed to retrieve teams", err)
+		return nil, errors.NewInternalError("failed to retrieve teams", err)
 	}
 	defer rows.Close()
 
@@ -130,14 +130,14 @@ func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]
 		team := &models.Team{}
 		if err := rows.Scan(&team.ID, &team.Name, &team.CreatedAt, &team.UpdatedAt); err != nil {
 			log.Printf("Error scanning team row for user %d: %v", userID, err)
-			return nil, apperrors.NewInternalError("failed to parse team data", err)
+			return nil, errors.NewInternalError("failed to parse team data", err)
 		}
 		teams = append(teams, team)
 	}
 
 	if err = rows.Err(); err != nil {
 		log.Printf("Error iterating teams for user %d: %v", userID, err)
-		return nil, apperrors.NewInternalError("failed to retrieve teams", err)
+		return nil, errors.NewInternalError("failed to retrieve teams", err)
 	}
 
 	return teams, nil
@@ -148,18 +148,18 @@ func (r *teamRepository) UpdateTeam(ctx context.Context, team *models.Team) erro
 	result, err := r.db.ExecContext(ctx, query, team.Name, team.ID)
 	if err != nil {
 		log.Printf("Database error updating team %d: %v", team.ID, err)
-		return apperrors.NewInternalError("failed to update team", err)
+		return errors.NewInternalError("failed to update team", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error checking rows affected for team %d update: %v", team.ID, err)
-		return apperrors.NewInternalError("failed to verify update", err)
+		return errors.NewInternalError("failed to verify update", err)
 	}
 
 	if rowsAffected == 0 {
 		log.Printf("No team found with ID %d to update", team.ID)
-		return apperrors.NewNotFoundError("team")
+		return errors.NewNotFoundError("team")
 	}
 
 	return nil
@@ -170,18 +170,18 @@ func (r *teamRepository) DeleteTeam(ctx context.Context, id int64) error {
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		log.Printf("Database error deleting team %d: %v", id, err)
-		return apperrors.NewInternalError("failed to delete team", err)
+		return errors.NewInternalError("failed to delete team", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error checking rows affected for team %d delete: %v", id, err)
-		return apperrors.NewInternalError("failed to verify deletion", err)
+		return errors.NewInternalError("failed to verify deletion", err)
 	}
 
 	if rowsAffected == 0 {
 		log.Printf("No team found with ID %d to delete", id)
-		return apperrors.NewNotFoundError("team")
+		return errors.NewNotFoundError("team")
 	}
 
 	return nil
@@ -197,7 +197,7 @@ func (r *teamRepository) UserExists(ctx context.Context, userID int64) (bool, er
 			return false, nil
 		}
 		log.Printf("Database error checking existence of user %d: %v", userID, err)
-		return false, apperrors.NewInternalError("failed to check user existence", err)
+		return false, errors.NewInternalError("failed to check user existence", err)
 	}
 
 	return true, nil
@@ -210,10 +210,10 @@ func (r *teamRepository) GetTeamRole(ctx context.Context, teamID int64, userID i
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("User %d is not a member of team %d", userID, teamID)
-			return "", apperrors.NewNotFoundError("user role in team")
+			return "", errors.NewNotFoundError("user role in team")
 		}
 		log.Printf("Database error retrieving role for user %d in team %d: %v", userID, teamID, err)
-		return "", apperrors.NewInternalError("failed to retrieve user role", err)
+		return "", errors.NewInternalError("failed to retrieve user role", err)
 	}
 	return role, nil
 }
@@ -225,10 +225,10 @@ func (r *teamRepository) AddMember(ctx context.Context, teamID int64, userID int
 		// Handle duplicate key error (user already a member)
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
 			log.Printf("User %d is already a member of team %d", userID, teamID)
-			return apperrors.NewConflictError("user is already a member of this team", err)
+			return errors.NewConflictError("user is already a member of this team", err)
 		}
 		log.Printf("Database error adding user %d to team %d: %v", userID, teamID, err)
-		return apperrors.NewInternalError("failed to add member to team", err)
+		return errors.NewInternalError("failed to add member to team", err)
 	}
 	return nil
 }
@@ -238,18 +238,18 @@ func (r *teamRepository) RemoveMember(ctx context.Context, teamID int64, userID 
 	result, err := r.db.ExecContext(ctx, query, teamID, userID)
 	if err != nil {
 		log.Printf("Database error removing user %d from team %d: %v", userID, teamID, err)
-		return apperrors.NewInternalError("failed to remove member from team", err)
+		return errors.NewInternalError("failed to remove member from team", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error checking rows affected for removing user %d from team %d: %v", userID, teamID, err)
-		return apperrors.NewInternalError("failed to verify removal", err)
+		return errors.NewInternalError("failed to verify removal", err)
 	}
 
 	if rowsAffected == 0 {
 		log.Printf("User %d was not a member of team %d", userID, teamID)
-		return apperrors.NewNotFoundError("user is not a member of this team")
+		return errors.NewNotFoundError("user is not a member of this team")
 	}
 
 	return nil
@@ -260,18 +260,18 @@ func (r *teamRepository) UpdateMemberRole(ctx context.Context, teamID int64, use
 	result, err := r.db.ExecContext(ctx, query, newRole, teamID, userID)
 	if err != nil {
 		log.Printf("Database error updating role for user %d in team %d: %v", userID, teamID, err)
-		return apperrors.NewInternalError("failed to update member role", err)
+		return errors.NewInternalError("failed to update member role", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error checking rows affected for role update for user %d in team %d: %v", userID, teamID, err)
-		return apperrors.NewInternalError("failed to verify role update", err)
+		return errors.NewInternalError("failed to verify role update", err)
 	}
 
 	if rowsAffected == 0 {
 		log.Printf("User %d is not a member of team %d", userID, teamID)
-		return apperrors.NewNotFoundError("user is not a member of this team")
+		return errors.NewNotFoundError("user is not a member of this team")
 	}
 
 	return nil

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	apperrors "team-management/internal/errors"
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
 )
 
 type mockAssetRepo struct {
@@ -560,7 +560,7 @@ func TestAssetService_ShareNote(t *testing.T) {
 			requesterID:      10,
 			noteID:           1,
 			sharedWithUserID: 20,
-			permission:       "member",
+			permission:       "admin",
 			setupRepo: func(repo *mockAssetRepo) {
 				repo.getNoteByIDFn = func(_ context.Context, id int64) (*models.Note, error) {
 					return testNote, nil

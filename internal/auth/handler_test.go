@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	customErrors "team-management/internal/errors"
 	"team-management/internal/models"
-	customErrors "team-management/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -89,7 +89,7 @@ func TestAuthHandler_Register(t *testing.T) {
 			body:           `{"username":"alice","email":"alice@example.com","password":"password123","role":"manager"}`,
 			service:        &mockAuthService{registerErr: customErrors.NewDuplicateError("email", stdErrors.New("duplicate"))},
 			expectedCode:   http.StatusConflict,
-			expectedBody:   "email already exists",
+			expectedBody:   "Email already in use",
 			expectRegister: true,
 		},
 		{
@@ -151,14 +151,14 @@ func TestAuthHandler_Login(t *testing.T) {
 			body:         `{"email":"alice@example.com","password":"password123"}`,
 			service:      &mockAuthService{loginErr: customErrors.NewUnauthorizedError("invalid email or password")},
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: "invalid email or password",
+			expectedBody: "Invalid credentials",
 		},
 		{
 			name:         "server error",
 			body:         `{"email":"alice@example.com","password":"password123"}`,
-			service:      &mockAuthService{loginErr: customErrors.NewInternalError("Failed to login", stdErrors.New("db down"))},
+			service:      &mockAuthService{loginErr: customErrors.NewInternalError("boom", stdErrors.New("db down"))},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "Internal Server Error",
+			expectedBody: "Failed to login",
 		},
 		{
 			name:         "invalid json",
@@ -229,7 +229,7 @@ func TestAuthHandler_BulkImportUsers(t *testing.T) {
 			fileContent:  "alice,alice@example.com,password123,manager\n",
 			service:      &mockAuthService{bulkErr: stdErrors.New("boom")},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "Internal Server Error",
+			expectedBody: "processing failed: boom",
 		},
 	}
 

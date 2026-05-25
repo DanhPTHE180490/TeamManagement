@@ -6,7 +6,7 @@ import (
 
 	"team-management/internal/asset"
 	"team-management/internal/auth"
-	testutil "team-management/internal/utils"
+	"team-management/internal/testutil"
 )
 
 func TestAssetCreateShareAndAccess(t *testing.T) {

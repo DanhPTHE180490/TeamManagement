@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	customErrors "team-management/internal/errors"
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
 )
 
 type mockTeamRepo struct {
@@ -127,7 +127,7 @@ func TestTeamService_CreateTeam(t *testing.T) {
 		role     string
 		setup    func(*mockTeamRepo)
 		wantErr  bool
-		wantType apperrors.ErrorType
+		wantType customErrors.ErrorType
 	}{
 		{
 			name:     "success",
@@ -139,14 +139,14 @@ func TestTeamService_CreateTeam(t *testing.T) {
 			teamName: "Platform",
 			role:     "member",
 			wantErr:  true,
-			wantType: apperrors.ErrTypeForbidden,
+			wantType: customErrors.ErrTypeForbidden,
 		},
 		{
 			name:     "validation error",
 			teamName: "",
 			role:     "manager",
 			wantErr:  true,
-			wantType: apperrors.ErrTypeValidation,
+			wantType: customErrors.ErrTypeValidation,
 		},
 		{
 			name:     "repo error",
@@ -154,11 +154,11 @@ func TestTeamService_CreateTeam(t *testing.T) {
 			role:     "manager",
 			setup: func(repo *mockTeamRepo) {
 				repo.createTeamFn = func(ctx context.Context, team *models.Team, creatorID int64, role string) (error, int64) {
-					return apperrors.NewInternalError("db failed", errors.New("boom")), 0
+					return customErrors.NewInternalError("db failed", errors.New("boom")), 0
 				}
 			},
 			wantErr:  true,
-			wantType: apperrors.ErrTypeInternal,
+			wantType: customErrors.ErrTypeInternal,
 		},
 	}
 
@@ -175,7 +175,7 @@ func TestTeamService_CreateTeam(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error, got nil")
 				}
-				if !apperrors.IsErrorType(err, tc.wantType) {
+				if !customErrors.IsErrorType(err, tc.wantType) {
 					t.Fatalf("expected %s, got %v", tc.wantType, err)
 				}
 				return
@@ -207,7 +207,7 @@ func TestTeamService_UpdateAndDeletePermissions(t *testing.T) {
 	}
 	service := NewTeamService(repo)
 
-	if _, err := service.UpdateTeam(context.Background(), 5, "New Name", 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
+	if _, err := service.UpdateTeam(context.Background(), 5, "New Name", 1); !customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden update for member, got %v", err)
 	}
 
@@ -222,7 +222,7 @@ func TestTeamService_UpdateAndDeletePermissions(t *testing.T) {
 		t.Fatal("expected repo UpdateTeam to be called with new name")
 	}
 
-	if err := service.DeleteTeam(context.Background(), 5, 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
+	if err := service.DeleteTeam(context.Background(), 5, 1); !customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden delete for member, got %v", err)
 	}
 
@@ -252,7 +252,7 @@ func TestTeamService_MemberManagement(t *testing.T) {
 			}
 		},
 		addMemberFn: func(_ context.Context, _ int64, _ int64, _ string) error {
-			return apperrors.NewConflictError("user is already a member of this team", errors.New("duplicate"))
+			return customErrors.NewConflictError("user is already a member of this team", errors.New("duplicate"))
 		},
 		userExistsFn: func(_ context.Context, userID int64) (bool, error) {
 			if userID == 999 {
@@ -263,19 +263,19 @@ func TestTeamService_MemberManagement(t *testing.T) {
 	}
 	service := NewTeamService(repo)
 
-	if err := service.AddMemberToTeam(context.Background(), 10, 20, 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
+	if err := service.AddMemberToTeam(context.Background(), 10, 20, 1); !customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden add by member, got %v", err)
 	}
 
-	if err := service.AddMemberToTeam(context.Background(), 10, 20, 2); !apperrors.IsErrorType(err, apperrors.ErrTypeConflict) {
+	if err := service.AddMemberToTeam(context.Background(), 10, 20, 2); !customErrors.IsErrorType(err, customErrors.ErrTypeConflict) {
 		t.Fatalf("expected conflict on duplicate member, got %v", err)
 	}
 
-	if err := service.AddMemberToTeam(context.Background(), 10, 999, 2); !apperrors.IsErrorType(err, apperrors.ErrTypeNotFound) {
+	if err := service.AddMemberToTeam(context.Background(), 10, 999, 2); !customErrors.IsErrorType(err, customErrors.ErrTypeNotFound) {
 		t.Fatalf("expected not found for missing target user, got %v", err)
 	}
 
-	if err := service.RemoveMemberFromTeam(context.Background(), 10, 20, 1); !apperrors.IsErrorType(err, apperrors.ErrTypeForbidden) {
+	if err := service.RemoveMemberFromTeam(context.Background(), 10, 20, 1); !customErrors.IsErrorType(err, customErrors.ErrTypeForbidden) {
 		t.Fatalf("expected forbidden remove by member, got %v", err)
 	}
 
@@ -286,7 +286,7 @@ func TestTeamService_MemberManagement(t *testing.T) {
 		t.Fatalf("expected remove call for team 10 user 20, got %d %d", repo.lastRemoveTeamID, repo.lastRemoveUserID)
 	}
 
-	if err := service.UpdateMemberRole(context.Background(), 10, 20, "invalid", 2); !apperrors.IsErrorType(err, apperrors.ErrTypeValidation) {
+	if err := service.UpdateMemberRole(context.Background(), 10, 20, "invalid", 2); !customErrors.IsErrorType(err, customErrors.ErrTypeValidation) {
 		t.Fatalf("expected validation error for invalid role, got %v", err)
 	}
 
