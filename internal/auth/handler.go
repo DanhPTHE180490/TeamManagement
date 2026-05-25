@@ -140,10 +140,33 @@ func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 		return
 	}
 
+	_, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: missing user ID"})
+		return
+	}
+
 	var requesterID int64
 	if userIDCtx, ok := c.Get("userID"); ok {
 		if floatID, isFloat := userIDCtx.(float64); isFloat {
 			requesterID = int64(floatID)
+		}
+		switch v := userIDCtx.(type) {
+		case int64:
+			requesterID = v
+		case int:
+			requesterID = int64(v)
+		case int32:
+			requesterID = int64(v)
+		case float64:
+			requesterID = int64(v)
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: invalid user ID"})
+			return
+		}
+		if requesterID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: invalid user ID"})
+			return
 		}
 	}
 

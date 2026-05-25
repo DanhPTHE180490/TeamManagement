@@ -61,6 +61,7 @@ func newAuthProtectedTestRouter(service AuthService, userRole any) *gin.Engine {
 		if userRole != nil {
 			c.Set("userRole", userRole)
 		}
+		c.Set("userID", int64(1))
 		c.Next()
 	})
 	NewAuthHandler(service).RegisterProtectedRoutes(router.Group("/api"))

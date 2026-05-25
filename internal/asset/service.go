@@ -3,6 +3,7 @@ package asset
 import (
 	"context"
 	"team-management/internal/models"
+	"team-management/internal/utils"
 	apperrors "team-management/internal/utils"
 	"time"
 
@@ -39,7 +40,7 @@ func NewAssetService(repo AssetRepository, redisClient *redis.Client) AssetServi
 func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID int64) (*models.Note, error) {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note", err)
 	}
 
 	// Check if requester is the owner of the note
@@ -51,7 +52,7 @@ func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID 
 	if note.FolderID > 0 {
 		folderShareLevel, err := s.repo.GetFolderShareLevel(ctx, note.FolderID, requesterID)
 		if err != nil {
-			return nil, err
+			return nil, utils.NewInternalError("failed to get folder share level", err)
 		}
 		if folderShareLevel == "write" || folderShareLevel == "read" {
 			return note, nil
@@ -61,7 +62,7 @@ func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID 
 	// Check note share level
 	noteShareLevel, err := s.repo.GetNoteShareLevel(ctx, note.ID, requesterID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note share level", err)
 	}
 	if noteShareLevel == "write" || noteShareLevel == "read" {
 		return note, nil
@@ -70,7 +71,7 @@ func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID 
 	// Check if requester is a manager of the owner
 	isManager, err := s.repo.IsManagerOfOwner(ctx, requesterID, note.OwnerID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to check manager status", err)
 	}
 	if isManager {
 		return note, nil
@@ -82,7 +83,7 @@ func (s *assetServiceImpl) GetNoteByID(ctx context.Context, requesterID, noteID 
 func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID int64, title, content string, folderID *int64) (*models.Note, error) {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note", err)
 	}
 
 	// Check if requester is the owner of the note
@@ -95,7 +96,7 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 		note.UpdatedAt = time.Now()
 		err = s.repo.UpdateNote(ctx, note)
 		if err != nil {
-			return nil, err
+			return nil, utils.NewInternalError("failed to update note", err)
 		}
 		return note, nil
 	}
@@ -104,7 +105,7 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 	if note.FolderID > 0 {
 		folderShareLevel, err := s.repo.GetFolderShareLevel(ctx, note.FolderID, requesterID)
 		if err != nil {
-			return nil, err
+			return nil, utils.NewInternalError("failed to get folder share level", err)
 		}
 		if folderShareLevel == "write" {
 			note.Title = title
@@ -115,7 +116,7 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 			note.UpdatedAt = time.Now()
 			err = s.repo.UpdateNote(ctx, note)
 			if err != nil {
-				return nil, err
+				return nil, utils.NewInternalError("failed to update note", err)
 			}
 			return note, nil
 		}
@@ -124,7 +125,7 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 	// Check note share level
 	noteShareLevel, err := s.repo.GetNoteShareLevel(ctx, note.ID, requesterID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note share level", err)
 	}
 	if noteShareLevel == "write" {
 		note.Title = title
@@ -135,12 +136,12 @@ func (s *assetServiceImpl) UpdateNote(ctx context.Context, requesterID, noteID i
 		note.UpdatedAt = time.Now()
 		err = s.repo.UpdateNote(ctx, note)
 		if err != nil {
-			return nil, err
+			return nil, utils.NewInternalError("failed to update note", err)
 		}
 		return note, nil
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "UNAUTHORIZED_NOTE_UPDATE_ATTEMPT", "note", &noteID, nil)
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "UNAUTHORIZED_NOTE_UPDATE_ATTEMPT", "note", &noteID, nil)
 
 	return nil, apperrors.NewForbiddenError("you do not have permission to edit this note")
 }
@@ -165,7 +166,7 @@ func (s *assetServiceImpl) GetUserNotes(ctx context.Context, requesterID int64) 
 func (s *assetServiceImpl) DeleteNote(ctx context.Context, requesterID, noteID int64) error {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return err
+		return utils.NewInternalError("failed to get note", err)
 	}
 
 	// Only owner can delete
@@ -173,15 +174,20 @@ func (s *assetServiceImpl) DeleteNote(ctx context.Context, requesterID, noteID i
 		return apperrors.NewForbiddenError("only owner can delete this note")
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_DELETED", "note", &noteID, nil)
+	err = s.repo.DeleteNote(ctx, noteID)
+	if err != nil {
+		return utils.NewInternalError("failed to delete note", err)
+	}
 
-	return s.repo.DeleteNote(ctx, noteID)
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "NOTE_DELETED", "note", &noteID, nil)
+
+	return nil
 }
 
 func (s *assetServiceImpl) ShareNote(ctx context.Context, requesterID, noteID, sharedWithUserID int64, permission string) error {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return err
+		return utils.NewInternalError("failed to get note", err)
 	}
 
 	// Only owner can share
@@ -193,19 +199,24 @@ func (s *assetServiceImpl) ShareNote(ctx context.Context, requesterID, noteID, s
 		return apperrors.NewValidationError("permission", "invalid permission level")
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_SHARED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID, "permission": permission})
-
-	return s.repo.ShareNote(ctx, &models.NoteShare{
+	err = s.repo.ShareNote(ctx, &models.NoteShare{
 		NoteID:           noteID,
 		SharedWithUserID: sharedWithUserID,
 		PermissionLevel:  permission,
 	})
+	if err != nil {
+		return utils.NewInternalError("failed to share note", err)
+	}
+
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "NOTE_SHARED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID, "permission": permission})
+
+	return nil
 }
 
 func (s *assetServiceImpl) RemoveNoteShare(ctx context.Context, requesterID, noteID, sharedWithUserID int64) error {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return err
+		return utils.NewInternalError("failed to get note", err)
 	}
 
 	// Only owner can remove share
@@ -213,14 +224,18 @@ func (s *assetServiceImpl) RemoveNoteShare(ctx context.Context, requesterID, not
 		return apperrors.NewForbiddenError("only owner can modify shares")
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "NOTE_SHARE_REMOVED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID})
-	return s.repo.RemoveNoteShare(ctx, noteID, sharedWithUserID)
+	err = s.repo.RemoveNoteShare(ctx, noteID, sharedWithUserID)
+	if err != nil {
+		return utils.NewInternalError("failed to remove note share", err)
+	}
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "NOTE_SHARE_REMOVED", "note", &noteID, map[string]any{"shared_with_user_id": sharedWithUserID})
+	return nil
 }
 
 func (s *assetServiceImpl) GetNoteShares(ctx context.Context, requesterID, noteID int64) ([]*models.NoteShare, error) {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note", err)
 	}
 
 	// Only owner can view shares
@@ -237,9 +252,13 @@ func (s *assetServiceImpl) CreateFolder(ctx context.Context, requesterID int64, 
 		Name:    name,
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "FOLDER_CREATED", "folder", nil, map[string]any{"folder_name": name})
+	folder, err := s.repo.CreateFolder(ctx, folder)
+	if err != nil {
+		return nil, utils.NewInternalError("failed to create folder", err)
+	}
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "FOLDER_CREATED", "folder", nil, map[string]any{"folder_name": name})
 
-	return s.repo.CreateFolder(ctx, folder)
+	return folder, nil
 }
 
 func (s *assetServiceImpl) GetUserFolders(ctx context.Context, requesterID int64) ([]*models.Folder, error) {
@@ -253,7 +272,7 @@ func (s *assetServiceImpl) GetSharedNotes(ctx context.Context, requesterID int64
 func (s *assetServiceImpl) DeleteFolder(ctx context.Context, requesterID, folderID int64) error {
 	folder, err := s.repo.GetFolderByID(ctx, folderID)
 	if err != nil {
-		return err
+		return utils.NewInternalError("failed to get folder", err)
 	}
 
 	// Only owner can delete
@@ -261,8 +280,12 @@ func (s *assetServiceImpl) DeleteFolder(ctx context.Context, requesterID, folder
 		return apperrors.NewForbiddenError("only owner can delete this folder")
 	}
 
-	audit.PublishEvent(s.redisClient, &requesterID, "FOLDER_DELETED", "folder", &folderID, nil)
-	return s.repo.DeleteFolder(ctx, folderID)
+	err = s.repo.DeleteFolder(ctx, folderID)
+	if err != nil {
+		return utils.NewInternalError("failed to delete folder", err)
+	}
+	audit.PublishEvent(ctx, s.redisClient, &requesterID, "FOLDER_DELETED", "folder", &folderID, nil)
+	return nil
 }
 
 func permissionPriority(p string) int {
@@ -281,7 +304,7 @@ func permissionPriority(p string) int {
 func (s *assetServiceImpl) GetNoteAccess(ctx context.Context, requesterID, noteID int64) ([]map[string]interface{}, error) {
 	note, err := s.repo.GetNoteByID(ctx, noteID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to get note", err)
 	}
 
 	// Only owner may view the full access list
@@ -295,7 +318,9 @@ func (s *assetServiceImpl) GetNoteAccess(ctx context.Context, requesterID, noteI
 
 	// Note shares
 	noteShares, err := s.repo.GetNoteShares(ctx, noteID)
-	if err == nil {
+	if err != nil {
+		return nil, utils.NewInternalError("failed to get note shares", err)
+	} else {
 		for _, ns := range noteShares {
 			if ns == nil {
 				continue
@@ -310,7 +335,9 @@ func (s *assetServiceImpl) GetNoteAccess(ctx context.Context, requesterID, noteI
 	// Folder shares
 	if note.FolderID > 0 {
 		folderShares, err := s.repo.GetFolderShares(ctx, note.FolderID)
-		if err == nil {
+		if err != nil {
+			return nil, utils.NewInternalError("failed to get folder shares", err)
+		} else {
 			for _, fs := range folderShares {
 				if fs == nil {
 					continue
@@ -325,7 +352,9 @@ func (s *assetServiceImpl) GetNoteAccess(ctx context.Context, requesterID, noteI
 
 	// Managers of owner get write access
 	managers, err := s.repo.GetManagersOfOwner(ctx, note.OwnerID)
-	if err == nil {
+	if err != nil {
+		return nil, utils.NewInternalError("failed to get managers of owner", err)
+	} else {
 		for _, m := range managers {
 			cur, ok := accessMap[m]
 			if !ok || permissionPriority("write") > permissionPriority(cur) {

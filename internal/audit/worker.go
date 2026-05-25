@@ -24,18 +24,26 @@ func StartAuditWorker(ctx context.Context, redisClient *redis.Client, auditRepo 
 
 	for {
 		select {
-		case msg := <-ch:
+		case msg, ok := <-ch:
+			if !ok {
+				log.Println("Audit Worker: Channel closed.")
+				return
+			}
 			var logEntry models.AuditLog
 			if err := json.Unmarshal([]byte(msg.Payload), &logEntry); err != nil {
 				log.Printf("Audit Worker Error: Failed to parse message: %v", err)
 				continue
 			}
 
-			err := auditRepo.CreateLog(context.Background(), &logEntry)
+			err := auditRepo.CreateLog(ctx, &logEntry)
 			if err != nil {
 				log.Printf("Audit Worker Error: Failed to save log to DB: %v", err)
 			} else {
-				log.Printf("Audit Logged: User %d -> %s", *logEntry.UserID, logEntry.Action)
+				if logEntry.UserID != nil {
+					log.Printf("Audit Logged: User %d -> %s", *logEntry.UserID, logEntry.Action)
+				} else {
+					log.Printf("Audit Logged: System/Anonymous -> %s", logEntry.Action)
+				}
 			}
 
 		case <-ctx.Done():
@@ -45,7 +53,7 @@ func StartAuditWorker(ctx context.Context, redisClient *redis.Client, auditRepo 
 	}
 }
 
-func PublishEvent(redisClient *redis.Client, userID *int64, action string, entityType string, entityID *int64, details map[string]any) {
+func PublishEvent(ctx context.Context, redisClient *redis.Client, userID *int64, action string, entityType string, entityID *int64, details map[string]any) {
 
 	if redisClient == nil {
 		return
@@ -75,7 +83,7 @@ func PublishEvent(redisClient *redis.Client, userID *int64, action string, entit
 		return
 	}
 
-	err = redisClient.Publish(context.Background(), "audit_events", auditBytes).Err()
+	err = redisClient.Publish(ctx, "audit_events", auditBytes).Err()
 	if err != nil {
 		log.Printf("Warning: Failed to publish audit event to Redis: %v", err)
 	}

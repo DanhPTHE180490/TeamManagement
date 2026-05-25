@@ -79,7 +79,11 @@ func main() {
 	assetHandler := asset.NewAssetHandler(assetService)
 
 	auditRepo := audit.NewAuditRepository(db)
-	go audit.StartAuditWorker(context.Background(), redisClient, auditRepo)
+	if err == nil && redisClient != nil {
+		go audit.StartAuditWorker(context.Background(), redisClient, auditRepo)
+	} else {
+		log.Println("Audit worker did not start because Redis is unavailable.")
+	}
 
 	router := gin.Default()
 
