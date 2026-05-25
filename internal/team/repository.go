@@ -7,6 +7,8 @@ import (
 	"strings"
 	"team-management/internal/models"
 	apperrors "team-management/internal/utils"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type TeamRepository interface {
@@ -23,10 +25,10 @@ type TeamRepository interface {
 }
 
 type teamRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewTeamRepository(db *sql.DB) TeamRepository {
+func NewTeamRepository(db *sqlx.DB) TeamRepository {
 	return &teamRepository{db: db}
 }
 

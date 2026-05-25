@@ -3,9 +3,12 @@ package asset
 import (
 	"context"
 	"database/sql"
+
 	"team-management/internal/models"
-	apperrors "team-management/internal/utils"
+	"team-management/internal/utils"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type AssetRepository interface {
@@ -32,43 +35,58 @@ type AssetRepository interface {
 }
 
 type assetRepositoryImpl struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewAssetRepository(db *sql.DB) AssetRepository {
+func NewAssetRepository(db *sqlx.DB) AssetRepository {
 	return &assetRepositoryImpl{db: db}
 }
 
 func (r *assetRepositoryImpl) GetNoteByID(ctx context.Context, id int64) (*models.Note, error) {
-	var note models.Note
-	var content sql.NullString
-	err := r.db.QueryRowContext(ctx, "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE id = ?", id).
-		Scan(&note.ID, &note.FolderID, &note.OwnerID, &note.Title, &content, &note.CreatedAt, &note.UpdatedAt)
+	// Use a temporary struct to safely scan nullable content
+	var nr struct {
+		ID        int64          `db:"id"`
+		FolderID  int64          `db:"folder_id"`
+		OwnerID   int64          `db:"owner_id"`
+		Title     string         `db:"title"`
+		Content   sql.NullString `db:"content"`
+		CreatedAt time.Time      `db:"created_at"`
+		UpdatedAt time.Time      `db:"updated_at"`
+	}
+	query := "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE id = ?"
+	err := r.db.GetContext(ctx, &nr, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, apperrors.NewNotFoundError("note")
+			return nil, utils.NewNotFoundError("note")
 		}
-		return nil, apperrors.NewInternalError("failed to query note", err)
+		return nil, utils.NewInternalError("failed to query note", err)
 	}
-	if content.Valid {
-		note.Content = content.String
+
+	note := &models.Note{
+		ID:        nr.ID,
+		FolderID:  nr.FolderID,
+		OwnerID:   nr.OwnerID,
+		Title:     nr.Title,
+		CreatedAt: nr.CreatedAt,
+		UpdatedAt: nr.UpdatedAt,
 	}
-	return &note, nil
+	if nr.Content.Valid {
+		note.Content = nr.Content.String
+	}
+	return note, nil
 }
 
 func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note) (*models.Note, error) {
 	now := time.Now()
-	result, err := r.db.ExecContext(ctx,
-		"INSERT INTO notes (folder_id, owner_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-		note.FolderID, note.OwnerID, note.Title, note.Content, now, now,
-	)
+	query := "INSERT INTO notes (folder_id, owner_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+	result, err := r.db.ExecContext(ctx, query, note.FolderID, note.OwnerID, note.Title, note.Content, now, now)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to create note", err)
+		return nil, utils.NewInternalError("failed to create note", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to fetch user notes", err)
+		return nil, utils.NewInternalError("failed to fetch user notes", err)
 	}
 
 	note.ID = id
@@ -78,9 +96,10 @@ func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note)
 }
 
 func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([]*models.Note, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE owner_id = ?", userID)
+	query := "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE owner_id = ?"
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to fetch user notes", err)
+		return nil, utils.NewInternalError("failed to fetch user notes", err)
 	}
 	defer rows.Close()
 
@@ -89,7 +108,7 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 		var note models.Note
 		var content sql.NullString
 		if err := rows.Scan(&note.ID, &note.FolderID, &note.OwnerID, &note.Title, &content, &note.CreatedAt, &note.UpdatedAt); err != nil {
-			return nil, apperrors.NewInternalError("failed to scan user note", err)
+			return nil, utils.NewInternalError("failed to scan user note", err)
 		}
 		if content.Valid {
 			note.Content = content.String
@@ -98,7 +117,7 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.NewInternalError("failed to iterate user notes", err)
+		return nil, utils.NewInternalError("failed to iterate user notes", err)
 	}
 
 	return notes, nil
@@ -107,7 +126,7 @@ func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([
 func (r *assetRepositoryImpl) DeleteNote(ctx context.Context, noteID int64) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM notes WHERE id = ?", noteID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to delete note", err)
+		return utils.NewInternalError("failed to delete note", err)
 	}
 	return nil
 }
@@ -118,7 +137,7 @@ func (r *assetRepositoryImpl) ShareNote(ctx context.Context, noteShare *models.N
 		noteShare.NoteID, noteShare.SharedWithUserID, noteShare.PermissionLevel, noteShare.PermissionLevel,
 	)
 	if err != nil {
-		return apperrors.NewInternalError("failed to share note", err)
+		return utils.NewInternalError("failed to share note", err)
 	}
 	return nil
 }
@@ -126,7 +145,7 @@ func (r *assetRepositoryImpl) ShareNote(ctx context.Context, noteShare *models.N
 func (r *assetRepositoryImpl) RemoveNoteShare(ctx context.Context, noteID, userID int64) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM note_shares WHERE note_id = ? AND shared_with_user_id = ?", noteID, userID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to remove note share", err)
+		return utils.NewInternalError("failed to remove note share", err)
 	}
 	return nil
 }
@@ -134,7 +153,7 @@ func (r *assetRepositoryImpl) RemoveNoteShare(ctx context.Context, noteID, userI
 func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) ([]*models.NoteShare, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT note_id, shared_with_user_id, permission_level FROM note_shares WHERE note_id = ?", noteID)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to query note shares", err)
+		return nil, utils.NewInternalError("failed to query note shares", err)
 	}
 	defer rows.Close()
 
@@ -142,12 +161,12 @@ func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) (
 	for rows.Next() {
 		var share models.NoteShare
 		if err := rows.Scan(&share.NoteID, &share.SharedWithUserID, &share.PermissionLevel); err != nil {
-			return nil, apperrors.NewInternalError("failed to scan note share", err)
+			return nil, utils.NewInternalError("failed to scan note share", err)
 		}
 		shares = append(shares, &share)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.NewInternalError("note shares rows iteration error", err)
+		return nil, utils.NewInternalError("note shares rows iteration error", err)
 	}
 	return shares, nil
 }
@@ -155,7 +174,7 @@ func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) (
 func (r *assetRepositoryImpl) GetFolderShares(ctx context.Context, folderID int64) ([]*models.FolderShare, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT folder_id, shared_with_user_id, permission_level FROM folder_shares WHERE folder_id = ?", folderID)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to query folder shares", err)
+		return nil, utils.NewInternalError("failed to query folder shares", err)
 	}
 	defer rows.Close()
 
@@ -163,12 +182,12 @@ func (r *assetRepositoryImpl) GetFolderShares(ctx context.Context, folderID int6
 	for rows.Next() {
 		var s models.FolderShare
 		if err := rows.Scan(&s.FolderID, &s.SharedWithUserID, &s.PermissionLevel); err != nil {
-			return nil, apperrors.NewInternalError("failed to scan folder share", err)
+			return nil, utils.NewInternalError("failed to scan folder share", err)
 		}
 		shares = append(shares, &s)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.NewInternalError("folder shares rows iteration error", err)
+		return nil, utils.NewInternalError("folder shares rows iteration error", err)
 	}
 	return shares, nil
 }
@@ -182,7 +201,7 @@ func (r *assetRepositoryImpl) GetManagersOfOwner(ctx context.Context, ownerID in
 		  AND req_tm.team_role IN ('manager','main_manager')
 	`, ownerID)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to query managers", err)
+		return nil, utils.NewInternalError("failed to query managers", err)
 	}
 	defer rows.Close()
 
@@ -190,12 +209,12 @@ func (r *assetRepositoryImpl) GetManagersOfOwner(ctx context.Context, ownerID in
 	for rows.Next() {
 		var uid int64
 		if err := rows.Scan(&uid); err != nil {
-			return nil, apperrors.NewInternalError("failed to scan manager id", err)
+			return nil, utils.NewInternalError("failed to scan manager id", err)
 		}
 		managers = append(managers, uid)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.NewInternalError("managers rows iteration error", err)
+		return nil, utils.NewInternalError("managers rows iteration error", err)
 	}
 	return managers, nil
 }
@@ -207,12 +226,12 @@ func (r *assetRepositoryImpl) CreateFolder(ctx context.Context, folder *models.F
 		folder.Name, folder.OwnerID, now, now,
 	)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to create folder", err)
+		return nil, utils.NewInternalError("failed to create folder", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to get user folders", err)
+		return nil, utils.NewInternalError("failed to get user folders", err)
 	}
 
 	folder.ID = id
@@ -246,9 +265,9 @@ func (r *assetRepositoryImpl) GetFolderByID(ctx context.Context, folderID int64)
 		Scan(&folder.ID, &folder.Name, &folder.OwnerID, &folder.CreatedAt, &folder.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, apperrors.NewNotFoundError("folder")
+			return nil, utils.NewNotFoundError("folder")
 		}
-		return nil, apperrors.NewInternalError("failed to query folder", err)
+		return nil, utils.NewInternalError("failed to query folder", err)
 	}
 	return &folder, nil
 }
@@ -256,7 +275,7 @@ func (r *assetRepositoryImpl) GetFolderByID(ctx context.Context, folderID int64)
 func (r *assetRepositoryImpl) DeleteFolder(ctx context.Context, folderID int64) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM folders WHERE id = ?", folderID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to delete folder", err)
+		return utils.NewInternalError("failed to delete folder", err)
 	}
 	return nil
 }
@@ -267,7 +286,7 @@ func (r *assetRepositoryImpl) ShareFolder(ctx context.Context, folderShare *mode
 		folderShare.FolderID, folderShare.SharedWithUserID, folderShare.PermissionLevel, folderShare.PermissionLevel,
 	)
 	if err != nil {
-		return apperrors.NewInternalError("failed to share folder", err)
+		return utils.NewInternalError("failed to share folder", err)
 	}
 	return nil
 }
@@ -275,7 +294,7 @@ func (r *assetRepositoryImpl) ShareFolder(ctx context.Context, folderShare *mode
 func (r *assetRepositoryImpl) RemoveFolderShare(ctx context.Context, folderID, userID int64) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM folder_shares WHERE folder_id = ? AND shared_with_user_id = ?", folderID, userID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to remove folder share", err)
+		return utils.NewInternalError("failed to remove folder share", err)
 	}
 	return nil
 }
@@ -290,7 +309,7 @@ func (r *assetRepositoryImpl) GetSharedNotes(ctx context.Context, userID int64) 
 		ORDER BY n.created_at DESC
 	`, userID, userID, userID)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to query shared notes", err)
+		return nil, utils.NewInternalError("failed to query shared notes", err)
 	}
 	defer rows.Close()
 
@@ -298,13 +317,13 @@ func (r *assetRepositoryImpl) GetSharedNotes(ctx context.Context, userID int64) 
 	for rows.Next() {
 		var note models.Note
 		if err := rows.Scan(&note.ID, &note.FolderID, &note.OwnerID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt); err != nil {
-			return nil, apperrors.NewInternalError("failed to scan shared note", err)
+			return nil, utils.NewInternalError("failed to scan shared note", err)
 		}
 		notes = append(notes, &note)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.NewInternalError("shared notes rows iteration error", err)
+		return nil, utils.NewInternalError("shared notes rows iteration error", err)
 	}
 	return notes, nil
 }
@@ -317,7 +336,7 @@ func (r *assetRepositoryImpl) GetFolderShareLevel(ctx context.Context, folderID,
 		if err == sql.ErrNoRows {
 			return "", nil // No share level found
 		}
-		return "", apperrors.NewInternalError("failed to query folder share level", err)
+		return "", utils.NewInternalError("failed to query folder share level", err)
 	}
 	return shareLevel, nil
 }
@@ -330,7 +349,7 @@ func (r *assetRepositoryImpl) GetNoteShareLevel(ctx context.Context, noteID, use
 		if err == sql.ErrNoRows {
 			return "", nil // No share level found
 		}
-		return "", apperrors.NewInternalError("failed to query note share level", err)
+		return "", utils.NewInternalError("failed to query note share level", err)
 	}
 	return shareLevel, nil
 }
@@ -347,7 +366,7 @@ func (r *assetRepositoryImpl) IsManagerOfOwner(ctx context.Context, requesterID,
 	`
 	err := r.db.QueryRowContext(ctx, query, requesterID, ownerID).Scan(&count)
 	if err != nil {
-		return false, apperrors.NewInternalError("failed to query manager relationship", err)
+		return false, utils.NewInternalError("failed to query manager relationship", err)
 	}
 	return count > 0, nil
 }
@@ -355,7 +374,7 @@ func (r *assetRepositoryImpl) IsManagerOfOwner(ctx context.Context, requesterID,
 func (r *assetRepositoryImpl) UpdateNote(ctx context.Context, note *models.Note) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE notes SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", note.Title, note.Content, note.ID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to update note", err)
+		return utils.NewInternalError("failed to update note", err)
 	}
 	return nil
 }
