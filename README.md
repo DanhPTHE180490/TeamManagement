@@ -1,3 +1,4 @@
+### A. Techinal justification
 ### 1. The Framework: Gin
 
 *   **The Justification:** Go's standard library is powerful, however Gin provides a highly performant, lightweight routing engine that greatly reduces boilerplate code. Coming from heavier, multi-layered architectures with strict MVC constraints (Java), Gin is refreshing because it stays out of my way. Approaching backend development with a rigorous automation testing mindset where testability is paramount, Gin allows for the strict enforcement of "Clean Architecture" (separating handlers, services, and repositories). This makes unit and integration testing a breeze without forcing a specific directory structure.
@@ -31,3 +32,35 @@
 *   **The Trade-off:** Introduces a learning curve and slight resource overhead for local development compared to running bare-metal Go binaries.
 
 *   **Why it fits the project:** It allows the entire microservice ecosystem to be spun up, networked, and tested with a single docker compose up command. This makes deployment trivial and provides a seamless review experience for other developers.
+
+### B. How to run
+
+### 1. Clone the Repository
+
+`git clone [https://github.com/danhpthe180490/teammanagement.git](https://github.com/danhpthe180490/teammanagement.git)`
+`cd teammanagement`
+
+### 2. Evironment Configuration
+
+`cp .env.example .env`
+
+(Ensure you set a secure JWT_SECRET and confirm the DB_DSN and REDIS_URL match your Docker setup).
+
+### 3. Run with Docker
+
+`docker compose up -d --build`
+
+The app will be available at http://localhost:8080.
+
+### C. API Documentation
+
+Once the Docker containers are running, navigate to:
+http://localhost:8080/swagger/index.html
+
+### D. Testing
+
+This project includes both isolated unit tests and full-suite integration tests (utilizing miniredis and test database transactions).
+
+Run all tests:
+
+`go test ./... -v`
