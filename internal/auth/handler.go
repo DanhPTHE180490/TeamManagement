@@ -39,7 +39,15 @@ func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
 	}
 }
 
-// Register expects {"username": "...", "email": "...", "password": "...", "role": "manager"}
+// Register godoc
+// @Summary      Register a new user
+// @Description  Creates a new user account with a specified role (manager, member)
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]string  true  "Example: {'username': 'test', 'email': 't@t.com', 'password': '123', 'role': 'manager'}"
+// @Success      201      {object}  map[string]interface{}
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.UserRegisterRequest
 
@@ -75,7 +83,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
-// Login expects {"email": "...", "password": "..."}
+// Login godoc
+// @Summary      Login a user
+// @Description  Authenticates a user and returns a JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      map[string]string  true  "Example: {'email': 't@t.com', 'password': '123'}"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.UserLoginRequest
 

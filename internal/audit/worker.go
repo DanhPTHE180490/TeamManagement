@@ -11,6 +11,11 @@ import (
 )
 
 func StartAuditWorker(ctx context.Context, redisClient *redis.Client, auditRepo AuditRepository) {
+
+	if redisClient == nil {
+		return
+	}
+
 	pubsub := redisClient.Subscribe(ctx, "audit_events")
 	defer pubsub.Close()
 

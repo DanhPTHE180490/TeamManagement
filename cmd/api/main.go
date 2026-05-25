@@ -18,8 +18,26 @@ import (
 	"team-management/internal/middleware"
 	"team-management/internal/team"
 
+	_ "team-management/docs"
+
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title           Team Management API
+// @version         1.0
+// @description     A robust microservice backend for managing teams, users, and digital assets.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.email  support@example.com
+
+// @host      localhost:8080
+// @BasePath  /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func main() {
 	db := database.InitDB()
@@ -88,9 +106,7 @@ func main() {
 	router.StaticFile("/notes.html", filepath.Join(webDir, "notes.html"))
 	router.StaticFile("/import-users.html", filepath.Join(webDir, "import-users.html"))
 
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
-	})
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	authHandler.RegisterRoutes(router)
 
