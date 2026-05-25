@@ -86,7 +86,7 @@ func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note)
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, utils.NewInternalError("failed to fetch user notes", err)
+		return nil, utils.NewInternalError("failed to retrieve inserted note ID", err)
 	}
 
 	note.ID = id
@@ -231,7 +231,7 @@ func (r *assetRepositoryImpl) CreateFolder(ctx context.Context, folder *models.F
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, utils.NewInternalError("failed to get user folders", err)
+		return nil, utils.NewInternalError("failed to retrieve inserted folder ID", err)
 	}
 
 	folder.ID = id
@@ -243,7 +243,7 @@ func (r *assetRepositoryImpl) CreateFolder(ctx context.Context, folder *models.F
 func (r *assetRepositoryImpl) GetUserFolders(ctx context.Context, userID int64) ([]*models.Folder, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT id, name, owner_id, created_at, updated_at FROM folders WHERE owner_id = ?", userID)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewInternalError("failed to query user folders", err)
 	}
 	defer rows.Close()
 
@@ -251,7 +251,7 @@ func (r *assetRepositoryImpl) GetUserFolders(ctx context.Context, userID int64) 
 	for rows.Next() {
 		var folder models.Folder
 		if err := rows.Scan(&folder.ID, &folder.Name, &folder.OwnerID, &folder.CreatedAt, &folder.UpdatedAt); err != nil {
-			return nil, err
+			return nil, utils.NewInternalError("failed to scan folder", err)
 		}
 		folders = append(folders, &folder)
 	}
