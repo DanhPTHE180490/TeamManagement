@@ -41,6 +41,9 @@ func NewTeamRepository(db *sqlx.DB, redis *redis.Client) TeamRepository {
 }
 
 func (r *teamRepository) cacheSet(ctx context.Context, key string, val interface{}, ttl time.Duration) {
+	if r == nil || r.redis == nil {
+		return
+	}
 	b, err := json.Marshal(val)
 	if err != nil {
 		log.Printf("CACHE MARSHAL ERROR: key=%s err=%v", key, err)
@@ -52,6 +55,9 @@ func (r *teamRepository) cacheSet(ctx context.Context, key string, val interface
 }
 
 func (r *teamRepository) cacheDel(ctx context.Context, keys ...string) {
+	if r == nil || r.redis == nil {
+		return
+	}
 	if len(keys) == 0 {
 		return
 	}
@@ -101,7 +107,13 @@ func (r *teamRepository) CreateTeam(ctx context.Context, team *models.Team, user
 
 func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Team, error) {
 	cacheKey := fmt.Sprintf("team:%d", id)
-	cachedData, err := r.redis.Get(ctx, cacheKey).Result()
+	var cachedData string
+	var err error
+	if r != nil && r.redis != nil {
+		cachedData, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var team models.Team
 		if err := json.Unmarshal([]byte(cachedData), &team); err == nil {
@@ -158,7 +170,13 @@ func (r *teamRepository) GetTeamByID(ctx context.Context, id int64) (*models.Tea
 
 func (r *teamRepository) GetTeamsByUserID(ctx context.Context, userID int64) ([]*models.Team, error) {
 	cacheKey := fmt.Sprintf("teams:user:%d", userID)
-	cachedData, err := r.redis.Get(ctx, cacheKey).Result()
+	var cachedData string
+	var err error
+	if r != nil && r.redis != nil {
+		cachedData, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var teams []*models.Team
 		if err := json.Unmarshal([]byte(cachedData), &teams); err == nil {
@@ -315,8 +333,9 @@ func (r *teamRepository) RemoveMember(ctx context.Context, teamID int64, userID 
 		return apperrors.NewNotFoundError("user is not a member of this team")
 	}
 
-	cacheKey := fmt.Sprintf("team:%d", teamID)
-	r.redis.Del(ctx, cacheKey)
+	cacheTeam := fmt.Sprintf("team:%d", teamID)
+	cacheUser := fmt.Sprintf("teams:user:%d", userID)
+	r.cacheDel(ctx, cacheTeam, cacheUser)
 
 	return nil
 }
@@ -341,7 +360,7 @@ func (r *teamRepository) UpdateMemberRole(ctx context.Context, teamID int64, use
 	}
 
 	cacheKey := fmt.Sprintf("team:%d", teamID)
-	r.redis.Del(ctx, cacheKey)
+	r.cacheDel(ctx, cacheKey, fmt.Sprintf("teams:user:%d", userID))
 
 	return nil
 }

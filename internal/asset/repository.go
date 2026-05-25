@@ -51,6 +51,9 @@ func NewAssetRepository(db *sqlx.DB, redis *redis.Client) AssetRepository {
 }
 
 func (r *assetRepositoryImpl) cacheSet(ctx context.Context, key string, val interface{}, ttl time.Duration) {
+	if r == nil || r.redis == nil {
+		return
+	}
 	b, err := json.Marshal(val)
 	if err != nil {
 		log.Printf("CACHE MARSHAL ERROR: key=%s err=%v", key, err)
@@ -62,6 +65,9 @@ func (r *assetRepositoryImpl) cacheSet(ctx context.Context, key string, val inte
 }
 
 func (r *assetRepositoryImpl) cacheDel(ctx context.Context, keys ...string) {
+	if r == nil || r.redis == nil {
+		return
+	}
 	if len(keys) == 0 {
 		return
 	}
@@ -71,6 +77,21 @@ func (r *assetRepositoryImpl) cacheDel(ctx context.Context, keys ...string) {
 }
 
 func (r *assetRepositoryImpl) GetNoteByID(ctx context.Context, id int64) (*models.Note, error) {
+	cacheKey := fmt.Sprintf("note:%d", id)
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
+	if err == nil {
+		var cachedNote models.Note
+		if err := json.Unmarshal([]byte(cached), &cachedNote); err == nil {
+			log.Printf("CACHE HIT: Retrieved note %d from Redis", id)
+			return &cachedNote, nil
+		}
+	}
 	// Use a temporary struct to safely scan nullable content
 	var nr struct {
 		ID        int64          `db:"id"`
@@ -82,7 +103,7 @@ func (r *assetRepositoryImpl) GetNoteByID(ctx context.Context, id int64) (*model
 		UpdatedAt time.Time      `db:"updated_at"`
 	}
 	query := "SELECT id, folder_id, owner_id, title, content, created_at, updated_at FROM notes WHERE id = ?"
-	err := r.db.GetContext(ctx, &nr, query, id)
+	err = r.db.GetContext(ctx, &nr, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, utils.NewNotFoundError("note")
@@ -131,7 +152,13 @@ func (r *assetRepositoryImpl) CreateNote(ctx context.Context, note *models.Note)
 
 func (r *assetRepositoryImpl) GetUserNotes(ctx context.Context, userID int64) ([]*models.Note, error) {
 	cacheKey := fmt.Sprintf("user:%d:notes", userID)
-	cached, err := r.redis.Get(ctx, cacheKey).Result()
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var cachedNotes []*models.Note
 		if err := json.Unmarshal([]byte(cached), &cachedNotes); err == nil {
@@ -208,7 +235,13 @@ func (r *assetRepositoryImpl) RemoveNoteShare(ctx context.Context, noteID, userI
 
 func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) ([]*models.NoteShare, error) {
 	cacheKey := fmt.Sprintf("note:%d:shares", noteID)
-	cached, err := r.redis.Get(ctx, cacheKey).Result()
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var cachedShares []*models.NoteShare
 		if err := json.Unmarshal([]byte(cached), &cachedShares); err == nil {
@@ -240,7 +273,13 @@ func (r *assetRepositoryImpl) GetNoteShares(ctx context.Context, noteID int64) (
 
 func (r *assetRepositoryImpl) GetFolderShares(ctx context.Context, folderID int64) ([]*models.FolderShare, error) {
 	cacheKey := fmt.Sprintf("folder:%d:shares", folderID)
-	cached, err := r.redis.Get(ctx, cacheKey).Result()
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var cachedShares []*models.FolderShare
 		if err := json.Unmarshal([]byte(cached), &cachedShares); err == nil {
@@ -323,7 +362,13 @@ func (r *assetRepositoryImpl) CreateFolder(ctx context.Context, folder *models.F
 
 func (r *assetRepositoryImpl) GetUserFolders(ctx context.Context, userID int64) ([]*models.Folder, error) {
 	cacheKey := fmt.Sprintf("user:%d:folders", userID)
-	cached, err := r.redis.Get(ctx, cacheKey).Result()
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var cachedFolders []*models.Folder
 		if err := json.Unmarshal([]byte(cached), &cachedFolders); err == nil {
@@ -357,7 +402,13 @@ func (r *assetRepositoryImpl) GetUserFolders(ctx context.Context, userID int64) 
 
 func (r *assetRepositoryImpl) GetFolderByID(ctx context.Context, folderID int64) (*models.Folder, error) {
 	cacheKey := fmt.Sprintf("folder:%d", folderID)
-	cached, err := r.redis.Get(ctx, cacheKey).Result()
+	var cached string
+	var err error
+	if r != nil && r.redis != nil {
+		cached, err = r.redis.Get(ctx, cacheKey).Result()
+	} else {
+		err = redis.Nil
+	}
 	if err == nil {
 		var cachedFolder models.Folder
 		if err := json.Unmarshal([]byte(cached), &cachedFolder); err == nil {

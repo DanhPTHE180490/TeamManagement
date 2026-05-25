@@ -12,11 +12,10 @@ import (
 
 	"team-management/internal/asset"
 	"team-management/internal/auth"
+	"team-management/internal/cache"
 	"team-management/internal/database"
 	"team-management/internal/middleware"
 	"team-management/internal/team"
-
-	"github.com/redis/go-redis/v9"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,11 +24,13 @@ func main() {
 	db := database.InitDB()
 	defer db.Close()
 
-	// Initialize Redis client for caching
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-	defer redisClient.Close()
+	// Initialize Redis client for caching (uses REDIS_URL env or fallback)
+	redisClient, err := cache.InitRedis()
+	if err != nil {
+		log.Printf("WARNING: Redis unavailable, continuing without cache: %v", err)
+	} else {
+		defer redisClient.Close()
+	}
 
 	authRepo := auth.NewAuthRepository(db)
 	authService := auth.NewAuthService(authRepo)
