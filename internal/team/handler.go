@@ -193,7 +193,7 @@ func (h *TeamHandler) GetTeamByID(c *gin.Context) {
 // @Param        userID   path      int64  true  "User ID"
 // @Success      200  {object}  map[string]interface{}
 // @Failure      400  {object}  map[string]interface{}
-// @Router       /api/teams/users/{userID} [get]
+// @Router       /teams/users/{userID} [get]
 func (h *TeamHandler) GetTeamsByUserID(c *gin.Context) {
 	userIDParam := c.Param("userID")
 	userID, err := strconv.ParseInt(userIDParam, 10, 64)
@@ -410,6 +410,7 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 // @Failure      400      {object}  map[string]interface{}
 // @Failure      401      {object}  map[string]interface{}
 // @Failure      403      {object}  map[string]interface{}
+// @Router       /api/teams/{id}/members/{userID} [delete]
 func (h *TeamHandler) RemoveMemberFromTeam(c *gin.Context) {
 	teamIDParam := c.Param("id")
 	teamID, err := strconv.ParseInt(teamIDParam, 10, 64)
@@ -461,6 +462,7 @@ func (h *TeamHandler) RemoveMemberFromTeam(c *gin.Context) {
 // @Failure      400      {object}  map[string]interface{}
 // @Failure      401      {object}  map[string]interface{}
 // @Failure      403      {object}  map[string]interface{}
+// @Router       /api/teams/{id}/members/{userID}/role [put]
 func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
 	teamIDParam := c.Param("id")
 	teamID, err := strconv.ParseInt(teamIDParam, 10, 64)

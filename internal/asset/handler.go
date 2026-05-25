@@ -63,7 +63,8 @@ func (h *AssetHandler) RegisterRoutes(protectedGroup *gin.RouterGroup) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id} [get]
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [get]
 func (h *AssetHandler) GetNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -102,18 +103,20 @@ func (h *AssetHandler) GetNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"note": note, "shares": shares})
 }
 
-// GetNoteAccess godoc
-// @Summary      Get note access list
-// @Description  Retrieves the list of users who have access to a note and their permissions. Only the owner can view this.
+// CreateNote godoc
+// @Summary      Create a new note
+// @Description  Creates a new note with a title, content, and optional folder. The note will be owned by the requester.
 // @Tags         Notes
+// @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "Note ID"
-// @Success      200  {object}  map[string]interface{}
+// @Param        request  body      map[string]interface{}  true  "Example: {'title': 'Note Title', 'content': 'Note content', 'folder_id': 2}"
+// @Success      201  {object}  map[string]interface{}
 // @Failure      400  {object}  map[string]string
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id}/access [get]
+// @Security     BearerAuth
+// @Router       /api/notes [post]
 func (h *AssetHandler) CreateNote(c *gin.Context) {
 	var req models.NoteCreateRequest
 
@@ -157,7 +160,8 @@ func (h *AssetHandler) CreateNote(c *gin.Context) {
 // @Failure      400  {object}  map[string]string
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
-// @Router       /notes/user/{userId} [get]
+// @Security     BearerAuth
+// @Router       /api/notes/user/{userId} [get]
 func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
@@ -198,7 +202,8 @@ func (h *AssetHandler) GetUserNotes(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id} [put]
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [put]
 func (h *AssetHandler) UpdateNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -248,7 +253,8 @@ func (h *AssetHandler) UpdateNote(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id} [delete]
+// @Security     BearerAuth
+// @Router       /api/notes/{id} [delete]
 func (h *AssetHandler) DeleteNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -289,7 +295,8 @@ func (h *AssetHandler) DeleteNote(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id}/share [post]
+// @Security     BearerAuth
+// @Router       /api/notes/{id}/share [post]
 func (h *AssetHandler) ShareNote(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -340,7 +347,8 @@ func (h *AssetHandler) ShareNote(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /notes/{id}/share/{userId} [delete]
+// @Security     BearerAuth
+// @Router       /api/notes/{id}/share/{userId} [delete]
 func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	noteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -378,19 +386,16 @@ func (h *AssetHandler) RemoveNoteShare(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Share removed successfully"})
 }
 
-// CreateNote godoc
-// @Summary      Create a new note
-// @Description  Creates a new note with a title, content, and optional folder. The note will be owned by the requester.
+// GetSharedNotes godoc
+// @Summary      Get shared notes
+// @Description  Retrieves all notes that have been shared with the user.
 // @Tags         Notes
-// @Accept       json
 // @Produce      json
-// @Param        request  body      map[string]interface{}  true  "Example: {'title': 'Note Title', 'content': 'Note content', 'folder_id': 2}"
-// @Success      201  {object}  map[string]interface{}
-// @Failure      400  {object}  map[string]string
+// @Success      200  {object}  map[string]interface{}
 // @Failure      401  {object}  map[string]string
-// @Failure      403  {object}  map[string]string
-// @Failure      404  {object}  map[string]string
-// @Router       /notes [post]
+// @Failure      500  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /api/notes/shared [get]
 func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 	requesterID, ok := getRequesterID(c)
 	if !ok {
@@ -419,7 +424,8 @@ func (h *AssetHandler) GetSharedNotes(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /folders [post]
+// @Security     BearerAuth
+// @Router       /api/folders [post]
 func (h *AssetHandler) CreateFolder(c *gin.Context) {
 	var req models.FolderCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -462,7 +468,8 @@ func (h *AssetHandler) CreateFolder(c *gin.Context) {
 // @Failure      400  {object}  map[string]string
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
-// @Router       /folders/user/{userId} [get]
+// @Security     BearerAuth
+// @Router       /api/folders/user/{userId} [get]
 func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil {
@@ -501,7 +508,8 @@ func (h *AssetHandler) GetUserFolders(c *gin.Context) {
 // @Failure      401  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
-// @Router       /folders/{id} [delete]
+// @Security     BearerAuth
+// @Router       /api/folders/{id} [delete]
 func (h *AssetHandler) DeleteFolder(c *gin.Context) {
 	folderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

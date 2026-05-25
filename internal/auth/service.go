@@ -51,6 +51,7 @@ type AuthService interface {
 	Register(ctx context.Context, username, email, password, role string) (*models.User, error)
 	Login(ctx context.Context, email, password string) (string, error)
 	BulkImportUsersFromCSV(ctx context.Context, requesterID int64, reader io.Reader) (*BulkImportSummary, error)
+	BlacklistToken(ctx context.Context, tokenString string, expiration time.Time) error
 }
 
 type authServiceImpl struct {
@@ -317,4 +318,20 @@ func (s *authServiceImpl) processImportJobs(ctx context.Context, wg *sync.WaitGr
 			resultChan <- UserImportResult{RowNumber: job.RowNumber, Success: true}
 		}
 	}
+}
+
+func (s *authServiceImpl) BlacklistToken(ctx context.Context, tokenString string, expiration time.Time) error {
+	// Calculate how much time the token has left before it naturally expires
+	ttl := time.Until(expiration)
+
+	if ttl <= 0 {
+		// Token is already expired, no need to waste Redis memory
+		return nil
+	}
+
+	// Save it to Redis with a prefix to keep things organized
+	redisKey := "blacklist:" + tokenString
+
+	// Set the value to "true" and apply the TTL
+	return s.redisClient.Set(ctx, redisKey, "true", ttl).Err()
 }

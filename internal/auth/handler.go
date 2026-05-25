@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"team-management/internal/models"
 	"team-management/internal/utils"
@@ -35,6 +36,7 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 func (h *AuthHandler) RegisterProtectedRoutes(protectedGroup *gin.RouterGroup) {
 	authGroup := protectedGroup.Group("/auth")
 	{
+		authGroup.POST("/logout", h.Logout)
 		authGroup.POST("/import-users", h.BulkImportUsers)
 	}
 }
@@ -126,13 +128,61 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// internal/auth/handler.go
+
+// Logout godoc
+// @Summary      Logout a user
+// @Description  Invalidates the user's current bearer token server-side.
+// @Tags         Auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200      {object}  map[string]interface{}
+// @Failure      401      {object}  map[string]interface{}
+// @Router       /api/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Using JWT is stateless so we can't invalidate tokens server-side without additional infrastructure (like a blacklist).
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Logout successful (client should delete the token)",
-	})
+	// Extract the raw token from the header
+	authHeader := c.GetHeader("Authorization")
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+	// Assuming your middleware parsed the JWT and stored the expiration in the context
+	// (If it doesn't do this yet, you'll need to add it to your middleware!)
+	expCtx, exists := c.Get("tokenExp")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not determine token expiration"})
+		return
+	}
+
+	expiration, ok := expCtx.(time.Time)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid expiration format"})
+		return
+	}
+
+	// Send it to Redis!
+	err := h.service.BlacklistToken(c.Request.Context(), tokenString, expiration)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to logout securely"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful! Token invalidated."})
 }
 
+// BulkImportUsers godoc
+// @Summary      Bulk import users
+// @Description  Allows managers or main managers to bulk import users via a CSV file upload.
+// @Tags         Auth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file     formData  file  true  "CSV file containing user data"
+// @Success      200      {object}  map[string]interface{}
+// @Failure      400      {object}  map[string]interface{}
+// @Failure      401      {object}  map[string]interface{}
+// @Failure      403      {object}  map[string]interface{}
+// @Failure      413      {object}  map[string]interface{}
+// @Failure      500      {object}  map[string]interface{}
+// @Router       /api/auth/import-users [post]
 func (h *AuthHandler) BulkImportUsers(c *gin.Context) {
 	userRole, exists := c.Get("userRole")
 	if !exists || (userRole != "manager" && userRole != "main_manager") {

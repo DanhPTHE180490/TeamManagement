@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 
 func main() {
 	db := database.InitDB()
+	// Defers run LIFO (Last In, First Out) right before main() exits
 	defer db.Close()
 
 	// Initialize Redis client for caching with a retry/backoff mechanism
@@ -53,16 +55,12 @@ func main() {
 		log.Printf("WARNING: Redis unavailable (attempt %d/%d): %v. Retrying in %v...", i, maxRetries, err, backoff)
 		time.Sleep(backoff)
 		redisClient, err = cache.InitRedis()
-
-		// Optional: uncomment for exponential backoff
-		// backoff *= 2
 	}
 
 	if err != nil {
 		log.Printf("WARNING: Redis completely unavailable after %d attempts. Continuing without cache: %v", maxRetries, err)
 	} else {
 		log.Println("Redis initialized successfully.")
-		// Ensure whatever type cache.InitRedis() returns has a Close() method
 		defer redisClient.Close()
 	}
 
@@ -77,10 +75,16 @@ func main() {
 	assetRepo := asset.NewAssetRepository(db, redisClient)
 	assetService := asset.NewAssetService(assetRepo, redisClient)
 	assetHandler := asset.NewAssetHandler(assetService)
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	var workerWg sync.WaitGroup
 
 	auditRepo := audit.NewAuditRepository(db)
 	if err == nil && redisClient != nil {
-		go audit.StartAuditWorker(context.Background(), redisClient, auditRepo)
+		workerWg.Add(1)
+		go func() {
+			defer workerWg.Done()
+			audit.StartAuditWorker(workerCtx, redisClient, auditRepo)
+		}()
 	} else {
 		log.Println("Audit worker did not start because Redis is unavailable.")
 	}
@@ -148,11 +152,29 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+
+	httpCtx, httpCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer httpCancel()
+	if err := srv.Shutdown(httpCtx); err != nil {
 		log.Fatalf("Failed to shutdown server: %v", err)
 	}
+	log.Println("HTTP server gracefully stopped.")
+	workerCancel()
+
+	workerWaitCh := make(chan struct{})
+	go func() {
+		workerWg.Wait()
+		close(workerWaitCh)
+	}()
+
+	select {
+	case <-workerWaitCh:
+		log.Println("All background workers have stopped successfully.")
+	case <-time.After(5 * time.Second):
+		log.Println("Timeout waiting for background workers to exit.")
+	}
+
+	log.Println("Finalizing shutdown...")
 }
 
 func findWebDir() string {

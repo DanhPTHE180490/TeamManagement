@@ -7,14 +7,14 @@
 ### 2. The Database: MySQL
 
 *   **The Justification:** The system manages "Users, Teams, and Digital Assets" with "granular access control." This data is inherently highly relational. Users belong to Teams, Folders belong to Users, Notes belong to Folders. A relational database with strict ACID compliance guarantees that these relationships remain intact. If I used a NoSQL database (like MongoDB), I would risk data anomalies when, for example, a Manager is deleted but their sub-resources are left orphaned. 
-*   **The Trade-off:** Relational databases like MySQL are generally harder to scale horizontally across multiple servers compared to NoSQL databases. If the system were to suddenly ingest millions of unstructured "Notes" per second, a document store might handle the write-load better, or maybe there is a network error between the client and the server, both of which doesn't really apply to a localhost project.
+*   **The Trade-off:** Relational databases like MySQL are generally harder to scale horizontally across multiple servers compared to NoSQL databases. If the system were to suddenly ingest millions of unstructured "Notes" per second, a document store might handle the write-load better, or maybe there is a network error between the client and the server, both of which don't really apply to a localhost project.
 *   **Why it fits the project:** The immediate priority is structural integrity and complex querying (e.g., "Find all assets in Folder X that belong to Team Y where User Z has Manager access"). Furthermore, the inherent read-scaling limitations of SQL were completely bypassed in this project by implementing a distributed Redis caching layer in front of the database.
 
 ### 3. The API Protocol: REST
 
 *   **The Justification:** REST provides a clean, universally understood contract between the client and server. It relies on standard HTTP methods and utilizes standard HTTP status codes, which directly fulfills the project's "Error Handling" requirement for graceful degradation. It is also highly cacheable at the network level. 
 *   **The Trade-off:** REST can suffer from over-fetching or under-fetching data. When you're used to seeing complex GraphQL queries where the client asks for exactly the fields it needs, REST can feel a bit rigid, sometimes requiring multiple round-trips to the server to stitch together a complete view of a "Team" and all its "Assets."
-*   **Why it fits the project:** Setting up REST is significantly faster than defining complex GraphQL schemas or writing gRPC `.proto` files. It allows I to deliver Stage 1 quickly and establish a baseline. I can always introduce gRPC later specifically for internal service-to-service communication if the system scales out.
+*   **Why it fits the project:** Setting up REST is significantly faster than defining complex GraphQL schemas or writing gRPC `.proto` files. It allows me to deliver Stage 1 quickly and establish a baseline. I can always introduce gRPC later specifically for internal service-to-service communication if the system scales out.
 
 ### 4. Cache & Event Broker: Redis
 
