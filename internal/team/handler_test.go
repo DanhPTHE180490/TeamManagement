@@ -183,6 +183,16 @@ func TestTeamHandler_CreateTeam(t *testing.T) {
 			callCount:    0,
 		},
 		{
+			name:         "invalid role type",
+			body:         `{"name":"Platform"}`,
+			userID:       float64(10),
+			userRole:     123,
+			service:      &mockTeamService{},
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: InvalidUserRoleTypeError,
+			callCount:    0,
+		},
+		{
 			name:         "validation error",
 			body:         `{}`,
 			userID:       float64(10),

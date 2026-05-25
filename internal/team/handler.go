@@ -27,11 +27,24 @@ const (
 	GetTeamError             = "Failed to retrieve team"
 	GetTeamsError            = "Failed to retrieve teams"
 	InvalidUserIDTypeError   = "Invalid user ID type"
+	InvalidUserRoleTypeError = "Invalid user role type"
 	InvalidInput             = "Invalid input"
 )
 
 type TeamHandler struct {
 	service TeamService
+}
+
+func getRequesterID(c *gin.Context) (int64, bool, bool) {
+	requesterCtx, exists := c.Get(ContextUserIDKey)
+	if !exists || requesterCtx == nil {
+		return 0, false, false
+	}
+	userIDFloat, ok := requesterCtx.(float64)
+	if !ok {
+		return 0, true, false
+	}
+	return int64(userIDFloat), true, true
 }
 
 func NewTeamHandler(service TeamService) *TeamHandler {
@@ -66,9 +79,13 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(ContextUserIDKey)
-	if !exists || userID == nil {
+	userID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
 
@@ -78,21 +95,18 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	if userRole == "member" {
+	role, ok := userRole.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserRoleTypeError})
+		return
+	}
+
+	if role == "member" {
 		c.JSON(http.StatusForbidden, gin.H{"error": ForbiddenError})
 		return
 	}
 
-	floatID, ok := userID.(float64)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
-		return
-	}
-
-	uid := int64(floatID)
-	role := userRole.(string)
-
-	team, err := h.service.CreateTeam(c.Request.Context(), req.Name, uid, role)
+	team, err := h.service.CreateTeam(c.Request.Context(), req.Name, userID, role)
 	if err != nil {
 		var appErr *utils.AppError
 		if errors.As(err, &appErr) {
@@ -191,18 +205,15 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(ContextUserIDKey)
-	if !exists || userID == nil {
+	requesterID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
 		return
 	}
-
-	floatID, ok := userID.(float64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
-	requesterID := int64(floatID)
 
 	team, err := h.service.UpdateTeam(c.Request.Context(), teamID, req.Name, requesterID)
 	if err != nil {
@@ -233,18 +244,15 @@ func (h *TeamHandler) DeleteTeam(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(ContextUserIDKey)
-	if !exists || userID == nil {
+	requesterID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
 		return
 	}
-
-	floatID, ok := userID.(float64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
-	requesterID := int64(floatID)
 
 	err = h.service.DeleteTeam(c.Request.Context(), teamID, requesterID)
 	if err != nil {
@@ -285,18 +293,15 @@ func (h *TeamHandler) AddMemberToTeam(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(ContextUserIDKey)
-	if !exists || userID == nil {
+	requesterID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
 		return
 	}
-
-	floatID, ok := userID.(float64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
-	requesterID := int64(floatID)
 
 	err = h.service.AddMemberToTeam(c.Request.Context(), teamID, req.UserID, requesterID)
 	if err != nil {
@@ -330,18 +335,15 @@ func (h *TeamHandler) RemoveMemberFromTeam(c *gin.Context) {
 		return
 	}
 
-	requesterCtx, exists := c.Get(ContextUserIDKey)
-	if !exists || requesterCtx == nil {
+	requesterID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
 		return
 	}
-
-	floatID, ok := requesterCtx.(float64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
-	requesterID := int64(floatID)
 
 	err = h.service.RemoveMemberFromTeam(c.Request.Context(), teamID, targetUserID, requesterID)
 	if err != nil {
@@ -384,18 +386,15 @@ func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
 		return
 	}
 
-	requesterCtx, exists := c.Get(ContextUserIDKey)
-	if !exists || requesterCtx == nil {
+	requesterID, exists, ok := getRequesterID(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": UnauthorizedError})
 		return
 	}
-
-	floatID, ok := requesterCtx.(float64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": InvalidUserIDTypeError})
 		return
 	}
-	requesterID := int64(floatID)
 
 	err = h.service.UpdateMemberRole(c.Request.Context(), teamID, targetUserID, req.Role, requesterID)
 	if err != nil {
