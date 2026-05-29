@@ -64,3 +64,24 @@ This project includes both isolated unit tests and full-suite integration tests 
 Run all tests:
 
 `go test ./... -v`
+
+## E. Architecture Decisions & Future Scaling
+
+While this application currently serves a small user base, the backend is designed with a decoupled, event-driven foundation to allow for seamless enterprise scaling. Below are the design choices for V1, and the targeted upgrade paths for a high-traffic environment.
+
+### 1. The Current State: Event-Driven Background Jobs
+**Decision:** Implemented Redis Pub/Sub instead of a heavy message broker.
+**Reasoning:** To handle asynchronous tasks (like Audit Logging), a queue is necessary so the HTTP response isn't delayed. However, deploying a heavy-duty broker like Kafka or RabbitMQ for a V1 product with a small user base is premature optimization. Redis Pub/Sub provides a lightweight, in-memory "fire-and-forget" orchestrator that handles background Goroutine workers perfectly without unnecessary hardware overhead.
+
+**The Upgrade Path:** As user count scales into the millions, Redis Pub/Sub will be replaced by **Kafka**. This introduces a disk-backed Dead Letter Queue, ensuring absolute data durability (zero lost audit logs) even during server outages.
+
+### 2. Media Scaling: AWS S3 & Presigned URLs
+**Decision:** Offloading media storage from the Go API.
+**Reasoning:** As Note-taking capabilities expand to accept heavy media (images and 4K video), routing large files through the Go server will exhaust memory and crash the API. 
+**The Upgrade Path:** The Go API will generate **Presigned URLs**. The frontend will use these URLs to upload heavy assets directly to an AWS S3 Bucket, bypassing our servers entirely and saving massive bandwidth, while MySQL simply stores the URL string as a reference.
+
+### 3. Polyglot Persistence: MySQL + MongoDB
+**Decision:** Maintaining strict ACID compliance with MySQL for core relationships, rather than defaulting entirely to NoSQL.
+**Reasoning:** The core of this system relies on strict relational logic (Users, Teams, Roles, and Folder Permissions). Moving this to a NoSQL database would force the Go application to manually stitch together complex relationships (simulating `JOIN`s), introducing massive latency and data synchronization risks (e.g., updating a username across thousands of decentralized documents).
+
+**The Upgrade Path:** We will maintain MySQL for core entity relationships and access control. However, to support complex, highly-nested Note data (Kanban boards, rich-text embeds, unstructured metadata), the Note content itself will be offloaded to **MongoDB**. This hybrid approach uses the exact right tool for the job: SQL for relationships, NoSQL for scale and flexibility.
